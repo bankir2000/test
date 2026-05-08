@@ -1873,7 +1873,7 @@
           const krok     = (this.formData.krok     !== '' && this.formData.krok     !== null && this.formData.krok     !== undefined) ? String(this.formData.krok)     : null;
           const height   = (this.formData.height   !== '' && this.formData.height   !== null && this.formData.height   !== undefined) ? String(this.formData.height)   : null;
 
-          let sms = `${formattedDate} ${this.formData.time || ''} ${this.formData.pozivniyPrefix} ${this.formData.pozivniy} р-н н.п.: ${this.formData.naseleniyPunkt} № цілі: ${targetNumberDisplay}`;
+          let sms = `${formattedDate} ${this.formData.time || ''} ${this.formData.pozivniyPrefix} ${this.formData.pozivniy} р-н н.п. ${this.formData.naseleniyPunkt} № цілі: ${targetNumberDisplay}`;
 
           if (angle)    sms += ` А-${angle}`;
           if (krok)     sms += ` К-${krok}`;
@@ -1889,7 +1889,7 @@
             ? this.formData.comment.trim()
             : '';
           if (sviyText || commentText) {
-            sms += ` Коментар: ${sviyText}${commentText}`;
+            sms += ` ${sviyText}${commentText}`;
           }
 
           return sms.trim();
