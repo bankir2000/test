@@ -365,6 +365,16 @@
       <form id="form" @submit.prevent>
         <div class="flex flex-col gap-1">
 
+          <!-- КНОПКА ОНОВЛЕННЯ -->
+          <div class="flex justify-end mb-1">
+            <button
+              type="button"
+              @click="reloadPage"
+              title="Оновити сторінку"
+              style="background:transparent; border:none; font-size:1.3rem; cursor:pointer; opacity:0.55; padding:2px 4px;"
+            >🔄</button>
+          </div>
+
           <!-- ПРОГРЕС -->
           <div class="progress-bar-wrap">
             <div class="progress-bar-fill" :style="{width: formProgress + '%'}"></div>
@@ -1873,12 +1883,12 @@
           const krok     = (this.formData.krok     !== '' && this.formData.krok     !== null && this.formData.krok     !== undefined) ? String(this.formData.krok)     : null;
           const height   = (this.formData.height   !== '' && this.formData.height   !== null && this.formData.height   !== undefined) ? String(this.formData.height)   : null;
 
-          let sms = `${formattedDate} ${this.formData.time || ''} ${this.formData.pozivniyPrefix} ${this.formData.pozivniy} р-н н.п. ${this.formData.naseleniyPunkt} № цілі: ${targetNumberDisplay}`;
+          let sms = `${formattedDate} час ${this.formData.time || ''} ${this.formData.pozivniyPrefix} ${this.formData.pozivniy} р-н н.п. ${this.formData.naseleniyPunkt} № цілі: ${targetNumberDisplay}`;
 
           if (angle)    sms += ` А-${angle}`;
           if (krok)     sms += ` К-${krok}`;
           if (distance) sms += ` Д-${distance}`;
-          if (height)   sms += ` В-${height}`;
+          if (height)   sms += ` H-${height}`;
 
           if (this.formData.detectionMode)   sms += `, ${this.formData.detectionMode}`;
           if (this.formData.targetCount)     sms += ` ${this.formData.targetCount}`;
@@ -1900,6 +1910,10 @@
             return this.buildSmsText();
           }
           return this.buildText();
+        },
+
+        reloadPage() {
+          window.location.reload();
         },
 
         copyData() {
