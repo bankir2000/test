@@ -69,6 +69,24 @@ mark.chg::after{content:attr(data-val);font-size:var(--fs,1em);background:#7fd69
 .row{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-bottom:10px;align-items:center}
 .row small{grid-column:1/3;color:var(--mut);overflow-wrap:anywhere}
 .row .ctx{grid-column:1/-1;color:var(--ink);font-style:italic}
+
+/* Яскравий акцентний стиль для випадаючого списку ОКІ */
+.row select.oki-select {
+  grid-column: 2;
+  width: 100%;
+  background-color: var(--sig);
+  color: #1d2214;
+  border: 2px solid var(--bar);
+  font-weight: 700;
+  box-shadow: 0 2px 6px #0002;
+  cursor: pointer;
+}
+.row select.oki-select option {
+  background-color: var(--card);
+  color: var(--ink);
+  font-weight: normal;
+}
+
 .tpl{display:flex;gap:6px;margin-bottom:6px}
 .tpl button:nth-last-child(2){flex:1;text-align:left}
 .thumb{height:44px;max-width:120px;object-fit:contain;background:#fff;border:1px solid var(--bd);border-radius:4px;padding:2px}
@@ -87,7 +105,7 @@ p.dropTarget{outline:2px dashed var(--sig);outline-offset:1px}
 input[type=text],input:not([type]){width:100%;padding:9px;border:1px solid var(--bd);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
 button{font:inherit;padding:10px 14px;border-radius:4px;border:1px solid var(--bd);background:var(--card);color:var(--ink);cursor:pointer;min-height:44px}
 button.pri{background:var(--ac);color:var(--ac-ink);border-color:var(--ac);font-weight:700;width:100%}
-button:focus-visible,input:focus-visible{outline:3px solid var(--sig);outline-offset:1px}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--sig);outline-offset:1px}
 </style>
 </head>
 <body>
@@ -111,9 +129,23 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sig);outline-of
   <div class="tools">
     <button id="exp" type="button">Експорт довідника</button>
     <button id="imp" type="button">Імпорт довідника</button>
+    <button id="expAll" type="button" style="width:100%; background:var(--sig); color:#1d2214; font-weight:700;">Експорт усіх довідників</button>
+    <button id="impAll" type="button" style="width:100%; background:var(--sig); color:#1d2214; font-weight:700;">Імпорт усіх довідників</button>
     <input type="file" id="impFile" accept=".json,application/json" hidden>
+    <input type="file" id="impAllFile" accept=".json,application/json" hidden>
   </div>
   <div id="tplList"></div>
+</section>
+<section id="okiLib">
+  <h2>Довідник ОКІ</h2>
+  <div class="tools">
+    <input id="okiNewVal" placeholder="Нове значення ОКІ" style="margin-bottom:6px">
+    <button id="okiAddBtn" type="button" style="width:100%;margin-bottom:6px">Додати значення</button>
+    <button id="okiExp" type="button">Експорт ОКІ</button>
+    <button id="okiImp" type="button">Імпорт ОКІ</button>
+    <input type="file" id="okiImpFile" accept=".json,application/json" hidden>
+  </div>
+  <div id="okiList" style="margin-top:8px"></div>
 </section>
 <section id="sigLib">
   <h2>Довідник підписів</h2>
@@ -131,7 +163,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--sig);outline-of
 <p id="iosHint" class="hint" hidden>Щоб встановити на iPhone чи iPad: кнопка «Поділитися» у Safari, потім «На початковий екран».</p>
 <section id="emptyHint">
   <h2>Почніть із зразка</h2>
-  <p class="hint">Відкрийте меню: там вибір .docx-зразка, довідник шаблонів і довідник підписів.</p>
+  <p class="hint">Відкрийте меню: там вибір .docx-зразка, довідники шаблонів, ОКІ та підписів.</p>
   <button id="emptyOpen" class="pri" type="button">Відкрити меню</button>
 </section>
 <dialog id="sigDlg">
@@ -181,13 +213,13 @@ const FIELD_PATTERNS = [
   { label: "ПІБ", re: /(?<!\p{L})\p{Lu}\p{Ll}+\s+\p{Lu}\.\s?\p{Lu}\./gu },
   { label: "ПІБ", re: /(?<!\p{L})\p{Lu}\.\s?\p{Lu}\.\s?\p{Lu}\p{Ll}+/gu },
   { label: "Телефон", re: /\+?\d[\d\s()-]{8,}\d/g },
+  { label: "ОКІ", re: /ОКІ/gu }
 ];
 
 class DocxError extends Error {}
 
 /* ---------- core: field detection and replacement ---------- */
 
-/** Return unique field candidates [{original, label}] found in paragraph texts. */
 function detectFields(texts) {
   const found = new Map();
   for (const text of texts) {
@@ -201,12 +233,11 @@ function detectFields(texts) {
   return [...found].map(([original, label]) => ({ original, label }));
 }
 
-/** Find non-overlapping occurrences; longer fields win so "12.05.2024" beats "12". */
 function findMatches(text, originals) {
   const hits = [];
   const sorted = [...originals].sort((a, b) => b.length - a.length);
   for (const original of sorted) {
-    if (!original) continue; // an empty string would loop forever in indexOf
+    if (!original) continue;
     let i = text.indexOf(original);
     while (i >= 0) {
       const end = i + original.length;
@@ -217,13 +248,11 @@ function findMatches(text, originals) {
   return hits.sort((a, b) => a.start - b.start);
 }
 
-/** Replace hits inside run texts; the first touched run keeps its formatting. */
 function replaceInRuns(runs, hits, values) {
   const out = [...runs];
   const offsets = [];
   let pos = 0;
   for (const t of runs) { offsets.push(pos); pos += t.length; }
-  // Reverse order keeps earlier offsets valid after later edits.
   for (const hit of [...hits].reverse()) {
     let first = true;
     runs.forEach((t, k) => {
@@ -257,7 +286,7 @@ function parseDocument(xmlText) {
 
 function writeRun(ts, text) {
   ts[0].textContent = text;
-  ts[0].setAttribute("xml:space", "preserve"); // otherwise Word trims edge spaces
+  ts[0].setAttribute("xml:space", "preserve");
   ts.slice(1).forEach((t) => { t.textContent = ""; });
 }
 
@@ -291,11 +320,11 @@ async function readDocx(file) {
 }
 
 async function buildDocx(doc, fields, values) {
-  const { xml, paragraphs } = parseDocument(doc.xmlText); // fresh parse: each build starts from the sample
+  const { xml, paragraphs } = parseDocument(doc.xmlText);
   const count = fillDocument(paragraphs, fields.map((f) => f.original), values);
   if (!count) throw new DocxError("У документі не знайдено жодного з полів.");
   for (const t of xml.getElementsByTagNameNS(W_NS, "t")) {
-    if (t.textContent.includes(MARK)) t.textContent = t.textContent.replaceAll(MARK, ""); // no invisible leftovers in the output
+    if (t.textContent.includes(MARK)) t.textContent = t.textContent.replaceAll(MARK, "");
   }
   doc.zip.file("word/document.xml", new XMLSerializer().serializeToString(xml));
   return doc.zip.generateAsync({ type: "blob", mimeType: DOCX_MIME });
@@ -308,6 +337,7 @@ const state = {
   doc: null, bytes: null, name: "", templateId: null, texts: [], fields: [],
   lastSelection: "", lastRange: null, pressing: false, viewerOk: false,
   history: [], activeOrig: null, zoomMul: 1, clip: null, pasteMode: false, sign: null, sigScale: 1,
+  okiList: []
 };
 
 let toastTimer = 0;
@@ -316,7 +346,7 @@ function say(text, isError = false) {
   $("msg").className = isError ? "err" : "";
   const toast = $("toast");
   clearTimeout(toastTimer);
-  if (!text || $("drawer").classList.contains("open")) { toast.hidden = true; return; } // menu open: the message is visible in it
+  if (!text || $("drawer").classList.contains("open")) { toast.hidden = true; return; }
   toast.textContent = text;
   toast.className = isError ? "err" : "";
   toast.hidden = false;
@@ -346,7 +376,6 @@ function closeDrawer() {
 
 const hasViewer = () => typeof window.docx !== "undefined";
 
-/** Render the sample with page layout like Word; returns false so the caller can fall back. */
 async function renderViewer() {
   const box = $("viewer");
   box.className = "";
@@ -366,12 +395,12 @@ function fitPages() {
   const wrap = $("viewer").querySelector(".docx-wrapper");
   const page = wrap?.querySelector("section.docx");
   if (!page) return;
-  wrap.style.zoom = "1"; // measure at natural size first
+  wrap.style.zoom = "1";
   wrap.style.zoom = String(Math.min(1, ($("viewer").clientWidth - 8) / page.offsetWidth) * state.zoomMul);
 }
 
 function wrapHit(nodes, offsets, hit) {
-  let first = true; // only the first piece of a split field shows the new value
+  let first = true;
   nodes.forEach((node, k) => {
     const start = offsets[k];
     const end = start + node.length;
@@ -398,7 +427,6 @@ function markParagraph(p, originals) {
   let pos = 0;
   for (const n of nodes) { offsets.push(pos); pos += n.length; }
   const hits = findMatches(nodes.map((n) => n.data).join(""), originals);
-  // Reverse order keeps earlier offsets valid after node splitting.
   for (const hit of hits.reverse()) wrapHit(nodes, offsets, hit);
 }
 
@@ -413,14 +441,13 @@ function highlight() {
   root.querySelectorAll("p").forEach((p) => markParagraph(p, originals));
 }
 
-/** Show the typed value in place of the field. The real text stays in the DOM, so selection and copy keep working. */
 function updatePreview() {
   const values = new Map(state.fields.map((f) => [f.original, f.value]));
   for (const mark of $("viewer").querySelectorAll("mark.f")) {
     const value = values.get(mark.dataset.orig);
     const changed = value !== undefined && value !== mark.dataset.orig.replaceAll(MARK, "");
     if (changed && !mark.classList.contains("chg")) {
-      mark.style.setProperty("--fs", getComputedStyle(mark).fontSize); // read before the text is hidden
+      mark.style.setProperty("--fs", getComputedStyle(mark).fontSize);
     }
     mark.classList.toggle("chg", changed);
     mark.classList.toggle("act", mark.dataset.orig === state.activeOrig);
@@ -428,7 +455,6 @@ function updatePreview() {
   }
 }
 
-/** A short piece of the sentence with the new value in it, for checking on a small screen. */
 function contextOf(field) {
   for (const text of state.texts) {
     const i = text.indexOf(field.original);
@@ -439,7 +465,6 @@ function contextOf(field) {
   return "";
 }
 
-/** Put the field in the middle of the document pane. force=false only scrolls when the field is out of sight. */
 function scrollToField(field, force = true) {
   const viewer = $("viewer");
   const mark = [...viewer.querySelectorAll("mark.f")].find((m) => m.dataset.orig === field.original);
@@ -452,7 +477,7 @@ function scrollToField(field, force = true) {
     top: viewer.scrollTop + (m.top - v.top) - (viewer.clientHeight - m.height) / 2,
     left: viewer.scrollLeft + (m.left - v.left) - (viewer.clientWidth - m.width) / 2,
     behavior: force ? "smooth" : "auto",
-  }); // inside the viewer only, the page itself does not move
+  });
 }
 
 function setActive(field) {
@@ -492,8 +517,6 @@ function makeInput(value, placeholder, onInput) {
   return el;
 }
 
-/** Order fields as they appear in the document (paragraph by paragraph, left to right).
- *  A field that occurs several times is placed by its first occurrence; fields not found go last. */
 function sortFieldsByDocument() {
   const originals = state.fields.map((f) => f.original);
   const pos = new Map();
@@ -506,8 +529,12 @@ function sortFieldsByDocument() {
   const order = (f) => pos.get(f.original) ?? Infinity;
   state.fields = state.fields
     .map((f, i) => ({ f, i }))
-    .sort((a, b) => (order(a.f) - order(b.f)) || (a.i - b.i)) // stable for ties and missing fields
+    .sort((a, b) => (order(a.f) - order(b.f)) || (a.i - b.i))
     .map(({ f }) => f);
+}
+
+function checkOkiInLabel(label) {
+  return label.toLowerCase().includes("окі");
 }
 
 function renderForm() {
@@ -527,13 +554,60 @@ function renderForm() {
     row.addEventListener("focusin", () => { setActive(field); scrollToField(field); });
     const note = document.createElement("small");
     note.textContent = `У зразку: ${field.original.replaceAll(MARK, "")}`;
-    row.append(
-      makeInput(field.label, "Назва поля", (v) => { field.label = v; }),
-      makeInput(field.value, "Нове значення", (v) => { field.value = v; ctx.textContent = contextOf(field); updatePreview(); scrollToField(field, false); }),
-      del,
-      note,
-      ctx,
-    );
+    
+    const wasOki = checkOkiInLabel(field.label);
+
+    const labelInp = makeInput(field.label, "Назва поля", (v) => { 
+      field.label = v; 
+      const isNowOki = checkOkiInLabel(v);
+      if (wasOki !== isNowOki) {
+        renderForm();
+      }
+    });
+
+    const isOki = checkOkiInLabel(field.label);
+
+    row.append(labelInp);
+
+    if (isOki) {
+      const sel = document.createElement("select");
+      sel.className = "oki-select";
+      
+      const optDefault = document.createElement("option");
+      optDefault.value = "";
+      optDefault.textContent = field.value && !state.okiList.some(item => item.val === field.value) 
+        ? field.value 
+        : "-- Оберіть з ОКІ --";
+      sel.append(optDefault);
+
+      state.okiList.forEach(item => {
+        const opt = document.createElement("option");
+        opt.value = item.val;
+        opt.textContent = item.val;
+        if (field.value === item.val) opt.selected = true;
+        sel.append(opt);
+      });
+
+      sel.onchange = () => {
+        if (sel.value) {
+          field.value = sel.value;
+          ctx.textContent = contextOf(field);
+          updatePreview();
+          scrollToField(field, false);
+        }
+      };
+      row.append(sel);
+    } else {
+      const valInp = makeInput(field.value, "Нове значення", (v) => { 
+        field.value = v; 
+        ctx.textContent = contextOf(field); 
+        updatePreview(); 
+        scrollToField(field, false); 
+      });
+      row.append(valInp);
+    }
+
+    row.append(del, note, ctx);
     form.append(row);
   });
 }
@@ -576,7 +650,6 @@ $("file").onchange = async (e) => {
 };
 
 const hideFab = () => { $("fab").hidden = true; };
-
 const occurrences = (text) => state.texts.reduce((n, t) => n + t.split(text).length - 1, 0);
 
 function placeFab() {
@@ -590,7 +663,6 @@ function placeFab() {
   fab.style.left = `${Math.min(Math.max(8, rect.left), window.innerWidth - fab.offsetWidth - 8)}px`;
 }
 
-// Tapping the button can collapse the selection on phones, so remember the last one.
 document.addEventListener("selectionchange", () => {
   const sel = window.getSelection();
   const text = sel.toString().trim();
@@ -622,7 +694,7 @@ function addField(text) {
 }
 
 const fab = $("fab");
-fab.addEventListener("mousedown", (e) => e.preventDefault()); // keeps the selection on desktop
+fab.addEventListener("mousedown", (e) => e.preventDefault());
 fab.addEventListener("pointerdown", () => { state.pressing = true; });
 ["pointerup", "pointercancel"].forEach((ev) =>
   fab.addEventListener(ev, () => setTimeout(() => { state.pressing = false; }, 400)));
@@ -644,14 +716,15 @@ $("gen").onclick = async () => {
   }
 };
 
-/* ---------- infrastructure: template library (IndexedDB) ---------- */
+/* ---------- infrastructure: IndexedDB ---------- */
 
 function openDb() {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("docgen", 2); // v2 adds the signatures store; templates stay untouched
+    const req = indexedDB.open("docgen", 3);
     req.onupgradeneeded = () => {
-      for (const store of ["templates", "signatures"]) {
-        if (!req.result.objectStoreNames.contains(store)) req.result.createObjectStore(store, { keyPath: "id" });
+      const db = req.result;
+      for (const store of ["templates", "signatures", "oki"]) {
+        if (!db.objectStoreNames.contains(store)) db.createObjectStore(store, { keyPath: "id" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -676,7 +749,10 @@ const saveSignature = (sig) => dbRun("readwrite", (s) => s.put(sig), "signatures
 const listSignatures = () => dbRun("readonly", (s) => s.getAll(), "signatures");
 const deleteSignature = (id) => dbRun("readwrite", (s) => s.delete(id), "signatures");
 
-/** Load a sample (fresh upload or saved template) and show it with its fields. */
+const saveOkiItem = (item) => dbRun("readwrite", (s) => s.put(item), "oki");
+const listOkiItems = () => dbRun("readonly", (s) => s.getAll(), "oki");
+const deleteOkiItem = (id) => dbRun("readwrite", (s) => s.delete(id), "oki");
+
 async function openBytes(bytes, name, savedFields = null, templateId = null) {
   const doc = await readDocx(new Blob([bytes]));
   Object.assign(state, { doc, bytes, name, templateId, history: [], clip: null, activeOrig: null });
@@ -725,7 +801,7 @@ async function renderLibrary() {
     items = await listTemplates();
   } catch (err) {
     console.error(err);
-    $("lib").hidden = true; // storage blocked: the rest of the tool still works
+    $("lib").hidden = true;
     return;
   }
   const query = $("q").value.trim().toLowerCase();
@@ -740,7 +816,6 @@ $("q").oninput = renderLibrary;
 $("save").onclick = async () => {
   const name = $("tplName").value.trim();
   if (!name) { say("Введіть назву шаблону.", true); return; }
-  // Copy edits change the document itself, so never overwrite a saved template silently.
   const overwrite = state.templateId && (state.history.length === 0 || confirm("Документ змінено копіюванням. Перезаписати шаблон? «Скасувати» збереже як новий."));
   const id = overwrite ? state.templateId : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const fields = state.fields.map(({ original, label, value }) => ({ original, label, value }));
@@ -755,18 +830,117 @@ $("save").onclick = async () => {
   }
 };
 
+/* ---------- OKI Library Logic ---------- */
+
+async function renderOkiLibrary() {
+  let items;
+  try {
+    items = await listOkiItems();
+  } catch (err) {
+    console.error(err);
+    $("okiLib").hidden = true;
+    return;
+  }
+  state.okiList = items.sort((a, b) => b.savedAt - a.savedAt);
+  const box = $("okiList");
+  box.replaceChildren();
+
+  if (!state.okiList.length) {
+    box.textContent = "Довідник ОКІ порожній.";
+    renderForm();
+    return;
+  }
+
+  state.okiList.forEach((item) => {
+    const row = document.createElement("div");
+    row.className = "tpl";
+    
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = item.val;
+    input.style.flex = "1";
+    input.onchange = async () => {
+      const newVal = input.value.trim();
+      if (!newVal) {
+        input.value = item.val;
+        return;
+      }
+      item.val = newVal;
+      await saveOkiItem(item);
+      say(`ОКІ оновлено.`);
+      renderForm();
+    };
+
+    const del = document.createElement("button");
+    del.textContent = "✕";
+    del.title = "Видалити ОКІ";
+    del.onclick = async () => {
+      await deleteOkiItem(item.id);
+      renderOkiLibrary();
+    };
+
+    row.append(input, del);
+    box.append(row);
+  });
+  renderForm();
+}
+
+$("okiAddBtn").onclick = async () => {
+  const val = $("okiNewVal").value.trim();
+  if (!val) { say("Введіть значення ОКІ", true); return; }
+  const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  await saveOkiItem({ id, val, savedAt: Date.now() });
+  $("okiNewVal").value = "";
+  say(`ОКІ «${val}» додано.`);
+  renderOkiLibrary();
+};
+
+async function exportOki() {
+  const items = await listOkiItems();
+  if (!items.length) { say("Довідник ОКІ порожній: нічого експортувати.", true); return; }
+  const json = JSON.stringify({ format: "dokshtab-oki", version: 1, exportedAt: new Date().toISOString(), oki: items });
+  await saveFile(new Blob([json], { type: "application/json" }), `dokshtab-oki-${new Date().toISOString().slice(0, 10)}.json`);
+  say(`Експортовано ОКІ: ${items.length}`);
+}
+
+async function importOki(file) {
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if (data?.format !== "dokshtab-oki" || !Array.isArray(data.oki)) {
+      throw new LibraryError("Це не файл довідника ОКІ.");
+    }
+    let count = 0;
+    for (const item of data.oki) {
+      if (item.val) {
+        const id = item.id || `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+        await saveOkiItem({ id, val: String(item.val), savedAt: Number(item.savedAt) || Date.now() });
+        count++;
+      }
+    }
+    await renderOkiLibrary();
+    say(`Імпортовано ${count} елементів ОКІ.`);
+  } catch (err) {
+    reportError(err);
+  }
+}
+
+$("okiExp").onclick = () => exportOki().catch(reportError);
+$("okiImp").onclick = () => $("okiImpFile").click();
+$("okiImpFile").onchange = (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (file) importOki(file);
+};
+
 /* ---------- copy and paste inside the document ---------- */
 
-// Viewer and XML disagree on tabs and spaces, so positions are compared without whitespace.
 const normalize = (s) => s.replace(/\s+/g, "");
 const STRIP_ATTRS = new Set(["paraId", "textId"]);
-// Invisible separator appended to field text in a copy: it makes the copy's fields different strings,
-// so they can get their own values while the original keeps its own.
 const MARK = "\u2063";
 
 const nextCopy = () => 1 + Math.max(0, ...state.fields.map((f) => f.original.split(MARK).length - 1));
 
-/** Give every field occurrence in `runs` copy number `n`; returns new runs and the new fields. */
 function remark(runs, fields, n) {
   const marker = MARK.repeat(n);
   const hits = findMatches(runs.join(""), fields.map((f) => f.original));
@@ -797,17 +971,16 @@ let docPrCounter = 90000;
 
 const paragraphOf = (node) => (node?.nodeType === 1 ? node : node?.parentElement)?.closest("p") ?? null;
 
-/** Map each shown paragraph to its XML paragraph; prefix = list number or bullet drawn by the viewer. */
 function mapViewerParagraphs() {
   const { paragraphs } = parseDocument(state.doc.xmlText);
   const xmlTexts = paragraphs.map((p) => normalize(p.runs.map(runText).join("")));
   const viewer = $("viewer");
-  const selector = viewer.querySelector("article") ? "article p" : "p"; // skips headers and footers
+  const selector = viewer.querySelector("article") ? "article p" : "p";
   const map = new Map();
   let from = 0;
   for (const el of viewer.querySelectorAll(selector)) {
     const shown = normalize(el.textContent);
-    if (!shown) { // blank line or cell: pair with the next XML paragraph only if that one is blank too
+    if (!shown) {
       if (xmlTexts[from] === "") { map.set(el, { idx: from, prefix: 0 }); from += 1; }
       continue;
     }
@@ -819,7 +992,6 @@ function mapViewerParagraphs() {
   return map;
 }
 
-/** Find the run and position after `offset` non-whitespace characters. */
 function locateOffset(runs, offset) {
   let remaining = offset;
   for (let k = 0; k < runs.length; k++) {
@@ -843,7 +1015,6 @@ function insertText(para, offset, text) {
   writeRun(para.runs[k], before + padInsert(before, text, after) + after);
 }
 
-/** Drop ids that must stay unique in a Word file, so a copy never triggers "repair" on open. */
 function sanitizeClone(node) {
   const strip = (el) => [...el.attributes].forEach((a) => { if (STRIP_ATTRS.has(a.localName)) el.removeAttributeNode(a); });
   strip(node);
@@ -872,10 +1043,9 @@ const topLevel = (nodes) => {
   return nodes.filter((n) => { for (let a = n.parentNode; a; a = a.parentNode) if (set.has(a)) return false; return true; });
 };
 
-/** Apply an edit to the working document, keep the previous version for undo, and re-render. */
 async function editDocument(mutate) {
   const { xml, paragraphs } = parseDocument(state.doc.xmlText);
-  const created = mutate(xml, paragraphs); // new fields for the copy, or a falsy value if nothing changed
+  const created = mutate(xml, paragraphs);
   if (!created) throw new DocxError("Не вдалося внести правку.");
   state.doc.zip.file("word/document.xml", new XMLSerializer().serializeToString(xml));
   const bytes = await state.doc.zip.generateAsync({ type: "arraybuffer" });
@@ -891,7 +1061,7 @@ async function applyDocument(bytes) {
   state.bytes = bytes;
   state.texts = parseDocument(state.doc.xmlText).paragraphs.map((p) => p.runs.map(runText).join(""));
   await refresh(true);
-  $("viewer").scrollTop = top; // keep the reader where they were
+  $("viewer").scrollTop = top;
   $("undo").hidden = state.history.length === 0;
   $("barUndo").disabled = state.history.length === 0;
 }
@@ -1000,10 +1170,6 @@ $("fabCopy").onclick = () => {
   window.getSelection().removeAllRanges();
 };
 
-
-/* ---------- one occurrence as its own field, and deleting selected text ---------- */
-
-/** Non-whitespace characters from the paragraph start to the point, minus the list number the viewer draws. */
 function normOffset(p, node, offset, info) {
   const range = document.createRange();
   range.selectNodeContents(p);
@@ -1020,7 +1186,6 @@ function insertRaw(para, norm, str) {
 
 const presentFields = () => new Set(state.fields.filter((f) => state.texts.some((t) => t.includes(f.original))).map((f) => f.original));
 
-/** Fields whose text was in the document before an edit and is gone now are removed from the form. */
 async function dropVanished(before) {
   const gone = state.fields.filter((f) => before.has(f.original) && !state.texts.some((t) => t.includes(f.original)));
   if (!gone.length) return 0;
@@ -1029,7 +1194,6 @@ async function dropVanished(before) {
   return gone.length;
 }
 
-/** The selected occurrence gets an invisible marker, so it becomes a different string from the other occurrences. */
 async function markHere() {
   const r = state.lastRange;
   const p = paragraphOf(r.endContainer);
@@ -1064,7 +1228,7 @@ function planDelete() {
   const startNorm = normOffset(pa, r.startContainer, r.startOffset, first);
   let endNorm = normOffset(pb, r.endContainer, r.endOffset, last);
   let lastIdx = last.idx;
-  if (lastIdx > first.idx && endNorm === 0) { lastIdx--; endNorm = Infinity; } // selection ended at the start of the next paragraph
+  if (lastIdx > first.idx && endNorm === 0) { lastIdx--; endNorm = Infinity; }
   if (lastIdx - first.idx + 1 > 20) throw new DocxError("Забагато абзаців: виділіть до 20.");
   return { firstIdx: first.idx, lastIdx, startNorm, endNorm };
 }
@@ -1072,14 +1236,13 @@ function planDelete() {
 function removeParagraph(node) {
   const parent = node.parentNode;
   const onlyInCell = parent.localName === "tc" && [...parent.children].filter((c) => c.localName === "p").length === 1;
-  if (onlyInCell || node.getElementsByTagNameNS(W_NS, "sectPr").length) { // a cell or a section break needs its paragraph
+  if (onlyInCell || node.getElementsByTagNameNS(W_NS, "sectPr").length) {
     [...node.children].filter((c) => c.localName !== "pPr").forEach((c) => c.remove());
     return;
   }
   node.remove();
 }
 
-/** Delete characters [s, e) counted without whitespace; keeps spacing around the gap tidy. */
 function deleteRange(para, s, e) {
   if (!para.runs.length) return;
   const runs = para.runs.map(runText);
@@ -1108,7 +1271,7 @@ async function deleteSelected(plan) {
       const total = normalize(para.runs.map(runText).join("")).length;
       const s = i === plan.firstIdx ? plan.startNorm : 0;
       const e = i === plan.lastIdx ? plan.endNorm : Infinity;
-      if (s <= 0 && e >= total) whole.push(para.node); // fully selected paragraph goes away with its line
+      if (s <= 0 && e >= total) whole.push(para.node);
       else deleteRange(para, s, e);
     }
     whole.forEach(removeParagraph);
@@ -1150,7 +1313,7 @@ $("barUndo").onclick = undoEdit;
 
 /* ---------- signatures: draw, store, insert ---------- */
 
-const EMU_PER_PX = 9525; // one css pixel at 96 dpi
+const EMU_PER_PX = 9525;
 const PEN_WIDTH = 3;
 const pen = { strokes: [], current: null, ratio: 1 };
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
@@ -1158,7 +1321,7 @@ const viewerZoom = () => parseFloat($("viewer").querySelector(".docx-wrapper")?.
 
 function drawStroke(ctx, pts) {
   ctx.beginPath();
-  if (pts.length === 1) { // a tap makes a dot
+  if (pts.length === 1) {
     ctx.arc(pts[0].x, pts[0].y, PEN_WIDTH / 2, 0, Math.PI * 2);
     ctx.fill();
     return;
@@ -1197,14 +1360,13 @@ function sizePad() {
   redrawPad();
 }
 
-/** Crop to the ink, so the signature can be fitted to its place without empty margins. */
 function renderSignaturePng() {
   const empty = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
   const b = pen.strokes.flat().reduce((acc, pt) => ({
     x0: Math.min(acc.x0, pt.x), y0: Math.min(acc.y0, pt.y), x1: Math.max(acc.x1, pt.x), y1: Math.max(acc.y1, pt.y),
   }), empty);
   const margin = PEN_WIDTH * 2;
-  const k = 3; // export resolution
+  const k = 3;
   const canvas = document.createElement("canvas");
   canvas.width = Math.ceil((b.x1 - b.x0 + 2 * margin) * k);
   canvas.height = Math.ceil((b.y1 - b.y0 + 2 * margin) * k);
@@ -1237,7 +1399,7 @@ $("sigNew").onclick = () => {
   $("sigName").value = "";
   $("sigMsg").textContent = "";
   $("sigDlg").showModal();
-  sizePad(); // the canvas has a size only once the dialog is visible
+  sizePad();
 };
 $("sigCancel").onclick = () => $("sigDlg").close();
 $("sigUndo").onclick = () => { pen.strokes.pop(); redrawPad(); };
@@ -1288,7 +1450,7 @@ async function renderSignatures() {
     items = await listSignatures();
   } catch (err) {
     console.error(err);
-    $("sigLib").hidden = true; // storage blocked: the rest of the tool still works
+    $("sigLib").hidden = true;
     return;
   }
   const box = $("sigList");
@@ -1314,11 +1476,8 @@ function enterSign(sig) {
 $("sigSmaller").onclick = () => { state.sigScale = Math.max(0.4, state.sigScale - 0.15); setSignText(); };
 $("sigBigger").onclick = () => { state.sigScale = Math.min(2.5, state.sigScale + 0.15); setSignText(); };
 
-/* --- fitting the signature to the place --- */
-
-/** Size in pixels: fits the underscore line if there is one, never wider than the paragraph. */
 function fitSignature(aspect, holeW, lineH, pageW, scale) {
-  const maxH = Math.min(Math.max(lineH * 2, 26), 48); // about two lines of text: in proportion to the surname beside it
+  const maxH = Math.min(Math.max(lineH * 2, 26), 48);
   const maxW = Math.min(holeW ?? maxH * 3, pageW);
   let h = Math.min(maxH, maxW / aspect) * scale;
   let w = h * aspect;
@@ -1326,7 +1485,6 @@ function fitSignature(aspect, holeW, lineH, pageW, scale) {
   return { w, h };
 }
 
-/** The position after `norm` non-whitespace characters, as an index into the raw text. */
 function rawIndex(text, norm) {
   let seen = 0;
   for (let i = 0; i < text.length; i++) {
@@ -1336,7 +1494,6 @@ function rawIndex(text, norm) {
   return text.length;
 }
 
-/** A line of underscores or dots ("Підпис ______") that the tap landed on. */
 function placeholderAt(text, raw) {
   for (const m of text.matchAll(/[_.…·\u2013\u2014-]{4,}/g)) {
     if (raw >= m.index && raw <= m.index + m[0].length) return { start: m.index, end: m.index + m[0].length };
@@ -1384,8 +1541,6 @@ function caretNorm(e, p, info) {
   return Math.max(0, normalize(range.toString()).length - info.prefix);
 }
 
-/* --- writing the picture into the docx --- */
-
 const DRAWING_NS = {
   wp: "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
   a: "http://schemas.openxmlformats.org/drawingml/2006/main",
@@ -1420,15 +1575,10 @@ function drawingRun(xml, rId, cx, cy) {
 const isTabOnlyRun = (n) =>
   n?.localName === "r" && !n.getElementsByTagNameNS(W_NS, "t").length && n.getElementsByTagNameNS(W_NS, "tab").length > 0;
 
-/**
- * Split the run at `local` characters and put `newRun` between the halves.
- * Tabs and line breaks stay where they were. When more text follows, the picture goes after the tabs,
- * right before that text: a signature tapped in the gap lands next to the surname, and the gap itself is kept.
- */
 function splitRun(ts, local, newRun, moreAfter) {
   const run = ts[0].parentNode;
   let left = local;
-  let cut = null; // first child that moves to the tail
+  let cut = null;
   for (const el of [...run.children].filter((c) => c.localName === "t")) {
     const text = el.textContent;
     if (left === 0) { cut = el; break; }
@@ -1448,7 +1598,7 @@ function splitRun(ts, local, newRun, moreAfter) {
   }
   const textFollows = (n) => { for (; n; n = n.nextElementSibling) if (n.localName === "t" && n.textContent) return true; return false; };
   if (cut && cut.localName === "tab" && (textFollows(cut) || moreAfter)) {
-    while (cut && cut.localName === "tab") cut = cut.nextElementSibling; // the tabs stay before the picture
+    while (cut && cut.localName === "tab") cut = cut.nextElementSibling;
   }
   const tailKids = [];
   for (let n = cut; n; n = n.nextElementSibling) tailKids.push(n);
@@ -1467,14 +1617,14 @@ function splitRun(ts, local, newRun, moreAfter) {
 }
 
 function insertRunAt(para, rawOffset, newRun) {
-  if (!para.runs.length) { para.node.appendChild(newRun); return; } // blank paragraph
+  if (!para.runs.length) { para.node.appendChild(newRun); return; }
   let pos = 0;
   for (let k = 0; k < para.runs.length; k++) {
     const length = runText(para.runs[k]).length;
     if (rawOffset <= pos + length || k === para.runs.length - 1) {
       const next = para.runs[k + 1]?.[0].parentNode;
       const lead = next && [...next.children].find((c) => c.localName !== "rPr");
-      if (rawOffset === pos + length && lead?.localName === "tab") { // the gap starts the next run: go past it
+      if (rawOffset === pos + length && lead?.localName === "tab") {
         splitRun(para.runs[k + 1], 0, newRun, k + 1 < para.runs.length - 1);
         return;
       }
@@ -1490,7 +1640,7 @@ function placeRun(para, norm, run) {
   const text = runs.join("");
   let at = rawIndex(text, norm);
   const hole = placeholderAt(text, at);
-  if (hole) { // the line of underscores gives way to the signature
+  if (hole) {
     const original = text.slice(hole.start, hole.end);
     replaceInRuns(runs, [{ ...hole, original }], { [original]: "" })
       .forEach((t, k) => { if (t !== runs[k]) writeRun(para.runs[k], t); });
@@ -1520,8 +1670,6 @@ async function signAt(e, p, info) {
   }
 }
 
-/* ---------- moving a placed signature ---------- */
-
 const signatureDrawings = (xml) =>
   [...xml.getElementsByTagNameNS(W_NS, "drawing")].filter((d) => d.getElementsByTagNameNS(DRAWING_NS.a, "blip").length);
 
@@ -1536,18 +1684,16 @@ function setExtent(drawing, { cx, cy }) {
   }
 }
 
-/** Take the k-th picture out of its paragraph and put it at the new place. */
 function moveSignature(xml, paragraphs, k, targetIdx, norm, size) {
   const drawing = signatureDrawings(xml)[k];
   const run = drawing?.parentNode;
   if (!run) throw new DocxError("Не вдалося знайти підпис у документі.");
   if (size) setExtent(drawing, size);
-  run.remove(); // text offsets stay valid: a picture adds no text
+  run.remove();
   placeRun(paragraphs[targetIdx], norm, run);
   return [];
 }
 
-/** Pictures are matched to the XML by order; when the counts differ nothing is made draggable. */
 function markSignatures() {
   const imgs = [...$("viewer").querySelectorAll("article img")];
   const drawings = signatureDrawings(parseDocument(state.doc.xmlText).xml);
@@ -1575,7 +1721,7 @@ function showDropMark(x, y) {
     range.collapse(true);
     return range.getClientRects()[0];
   })();
-  mark.hidden = !rect || !rect.height; // blank lines have no caret box: the dashed paragraph outline is shown instead
+  mark.hidden = !rect || !rect.height;
   if (!mark.hidden) Object.assign(mark.style, { left: `${rect.left}px`, top: `${rect.top}px`, height: `${rect.height}px` });
 }
 
@@ -1599,7 +1745,7 @@ async function dropSignature(img, x, y) {
   const text = paragraphs[info.idx].runs.map(runText).join("");
   const hole = placeholderAt(text, rawIndex(text, norm));
   const aspect = { w: img.naturalWidth, h: img.naturalHeight };
-  const size = hole ? signatureSize(p, holeWidth(p, text, hole, info.prefix), aspect) : null; // refit only onto an underscore line
+  const size = hole ? signatureSize(p, holeWidth(p, text, hole, info.prefix), aspect) : null;
   const k = Number(img.dataset.i);
   await runEdit((xml, paras) => moveSignature(xml, paras, k, info.idx, norm, size), "Підпис переміщено. Не туди? «Скасувати» повертає назад.");
 }
@@ -1611,10 +1757,10 @@ function startSignatureDrag(e, img) {
   const move = (ev) => {
     if (ev.pointerId !== e.pointerId) return;
     if (!ghost) {
-      if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 8) return; // a tap is not a drag
+      if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 8) return;
       ghost = makeGhost(img);
     }
-    const lift = ev.pointerType === "touch" ? ghost.offsetHeight + 24 : ghost.offsetHeight / 2; // stay visible above the finger
+    const lift = ev.pointerType === "touch" ? ghost.offsetHeight + 24 : ghost.offsetHeight / 2;
     ghost.style.left = `${ev.clientX - ghost.offsetWidth / 2}px`;
     ghost.style.top = `${ev.clientY - lift}px`;
     const p = dropTargetAt(ev.clientX, ev.clientY);
@@ -1630,7 +1776,7 @@ function startSignatureDrag(e, img) {
     $("dropMark").hidden = true;
     ghost?.remove();
     img.style.opacity = "";
-    if (!ghost) return; // it was only a tap
+    if (!ghost) return;
     state.justDragged = true;
     setTimeout(() => { state.justDragged = false; }, 300);
     if (ev.type === "pointerup") dropSignature(img, ev.clientX, ev.clientY);
@@ -1668,7 +1814,7 @@ function toTemplate(item) {
     throw new LibraryError(`Пошкоджений шаблон «${title}».`);
   }
   const head = new Uint8Array(bytes.slice(0, 2));
-  const isZip = head[0] === 0x50 && head[1] === 0x4b; // a .docx is a zip: "PK"
+  const isZip = head[0] === 0x50 && head[1] === 0x4b;
   if (!item.id || !item.name || !Array.isArray(item.fields) || !isZip) {
     throw new LibraryError(`Некоректний шаблон «${title}».`);
   }
@@ -1694,7 +1840,7 @@ function parseLibrary(text) {
 }
 
 function parseSignatures(text) {
-  const list = JSON.parse(text).signatures ?? []; // the file was already validated by parseLibrary
+  const list = JSON.parse(text).signatures ?? [];
   return list.map((s) => {
     if (!s?.id || !s?.name || !/^data:image\/png;base64,/.test(s.dataUrl ?? "")) {
       throw new LibraryError(`Некоректний підпис «${s?.name ?? "без назви"}».`);
@@ -1703,7 +1849,6 @@ function parseSignatures(text) {
   });
 }
 
-/** Save incoming signatures; a newer local copy is never overwritten. Returns how many were saved. */
 async function mergeSignatures(incoming) {
   const known = new Map((await listSignatures()).map((x) => [x.id, x]));
   let saved = 0;
@@ -1714,6 +1859,19 @@ async function mergeSignatures(incoming) {
     saved++;
   }
   await renderSignatures();
+  return saved;
+}
+
+async function mergeOki(incoming) {
+  const known = new Map((await listOkiItems()).map((x) => [x.id, x]));
+  let saved = 0;
+  for (const item of incoming) {
+    const old = known.get(item.id);
+    if (old && old.savedAt >= item.savedAt) continue;
+    await saveOkiItem(item);
+    saved++;
+  }
+  await renderOkiLibrary();
   return saved;
 }
 
@@ -1731,7 +1889,7 @@ function parseSignatureFile(text) {
 async function exportSignatures() {
   const signatures = await listSignatures();
   if (!signatures.length) { say("Довідник підписів порожній: нічого експортувати.", true); return; }
-  const json = JSON.stringify({ format: LIB_FORMAT, version: 1, exportedAt: new Date().toISOString(), templates: [], signatures });
+  const json = JSON.stringify({ format: LIB_FORMAT, version: 1, exportedAt: new Date().toISOString(), templates: [], signatures, oki: [] });
   await saveFile(new Blob([json], { type: "application/json" }), `dokshtab-pidpysy-${new Date().toISOString().slice(0, 10)}.json`);
   say(`Експортовано підписів: ${signatures.length}`);
 }
@@ -1747,7 +1905,7 @@ async function exportLibrary() {
   const signatures = await listSignatures();
   if (!items.length && !signatures.length) { say("Довідники порожні: нічого експортувати.", true); return; }
   const templates = items.map((t) => ({ id: t.id, name: t.name, savedAt: t.savedAt, fields: t.fields, docx: bytesToBase64(t.bytes) }));
-  const json = JSON.stringify({ format: LIB_FORMAT, version: 1, exportedAt: new Date().toISOString(), templates, signatures });
+  const json = JSON.stringify({ format: LIB_FORMAT, version: 1, exportedAt: new Date().toISOString(), templates, signatures, oki: [] });
   await saveFile(new Blob([json], { type: "application/json" }), `dokshtab-dovidnyk-${new Date().toISOString().slice(0, 10)}.json`);
   say(`Експортовано шаблонів: ${items.length}, підписів: ${signatures.length}`);
 }
@@ -1760,7 +1918,7 @@ async function importLibrary(file) {
   let added = 0, updated = 0, skipped = 0;
   for (const tpl of incoming) {
     const old = existing.get(tpl.id);
-    if (old && old.savedAt >= tpl.savedAt) { skipped++; continue; } // never overwrite a newer local copy
+    if (old && old.savedAt >= tpl.savedAt) { skipped++; continue; }
     await saveTemplate(tpl);
     if (old) updated++; else added++;
   }
@@ -1769,10 +1927,87 @@ async function importLibrary(file) {
   say(`Імпорт завершено. Шаблонів: додано ${added}, оновлено ${updated}, пропущено ${skipped} (локальні новіші). Підписів додано або оновлено: ${signaturesAdded}.`);
 }
 
+/* ---------- Експорт та імпорт УСІХ довідників разом (включно з ОКІ) ---------- */
+
+async function exportAllLibraries() {
+  const items = await listTemplates();
+  const signatures = await listSignatures();
+  const okiItems = await listOkiItems();
+  
+  if (!items.length && !signatures.length && !okiItems.length) { 
+    say("Усі довідники порожні: нічого експортувати.", true); 
+    return; 
+  }
+  
+  const templates = items.map((t) => ({ id: t.id, name: t.name, savedAt: t.savedAt, fields: t.fields, docx: bytesToBase64(t.bytes) }));
+  const json = JSON.stringify({ 
+    format: LIB_FORMAT, 
+    version: 2, 
+    exportedAt: new Date().toISOString(), 
+    templates, 
+    signatures, 
+    oki: okiItems 
+  });
+  
+  await saveFile(new Blob([json], { type: "application/json" }), `dokshtab-vsi-dovidnyky-${new Date().toISOString().slice(0, 10)}.json`);
+  say(`Експортовано: шаблонів — ${items.length}, підписів — ${signatures.length}, ОКІ — ${okiItems.length}`);
+}
+
+async function importAllLibraries(file) {
+  try {
+    const text = await file.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new LibraryError("Файл не є коректним JSON.");
+    }
+    if (data?.format !== LIB_FORMAT) {
+      throw new LibraryError("Це не файл довідника ДокШтаб.");
+    }
+
+    // 1. Імпорт шаблонів
+    let added = 0, updated = 0, skipped = 0;
+    if (Array.isArray(data.templates) && data.templates.length > 0) {
+      const incomingTemplates = data.templates.map(toTemplate);
+      const existing = new Map((await listTemplates()).map((t) => [t.id, t]));
+      for (const tpl of incomingTemplates) {
+        const old = existing.get(tpl.id);
+        if (old && old.savedAt >= tpl.savedAt) { skipped++; continue; }
+        await saveTemplate(tpl);
+        if (old) updated++; else added++;
+      }
+      await renderLibrary();
+    }
+
+    // 2. Імпорт підписів
+    let signaturesAdded = 0;
+    if (Array.isArray(data.signatures) && data.signatures.length > 0) {
+      const incomingSignatures = parseSignatures(text);
+      signaturesAdded = await mergeSignatures(incomingSignatures);
+    }
+
+    // 3. Імпорт ОКІ
+    let okiAdded = 0;
+    if (Array.isArray(data.oki) && data.oki.length > 0) {
+      okiAdded = await mergeOki(data.oki);
+    }
+
+    say(`Повний імпорт завершено:\n• Шаблонів: додано ${added}, оновлено ${updated}, пропущено ${skipped}\n• Підписів додано/оновлено: ${signaturesAdded}\n• ОКІ додано/оновлено: ${okiAdded}`);
+  } catch (err) {
+    reportError(err);
+  }
+}
+
 $("exp").onclick = () => exportLibrary().catch(reportError);
 $("imp").onclick = () => $("impFile").click();
+
+$("expAll").onclick = () => exportAllLibraries().catch(reportError);
+$("impAll").onclick = () => $("impAllFile").click();
+
 $("sigExp").onclick = () => exportSignatures().catch(reportError);
 $("sigImp").onclick = () => $("sigImpFile").click();
+
 $("sigImpFile").onchange = (e) => {
   const file = e.target.files[0];
   e.target.value = "";
@@ -1780,8 +2015,13 @@ $("sigImpFile").onchange = (e) => {
 };
 $("impFile").onchange = (e) => {
   const file = e.target.files[0];
-  e.target.value = ""; // lets the same file be chosen again
+  e.target.value = "";
   if (file) importLibrary(file).catch(reportError);
+};
+$("impAllFile").onchange = (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (file) importAllLibraries(file).catch(reportError);
 };
 
 /* ---------- PWA: saving files, install, offline ---------- */
@@ -1789,7 +2029,6 @@ $("impFile").onchange = (e) => {
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
 
-/** On iOS the share sheet is the reliable way to save a generated file; elsewhere a normal download. */
 async function saveFile(blob, name) {
   const file = new File([blob], name, { type: blob.type });
   if (isIOS && navigator.canShare?.({ files: [file] })) {
@@ -1819,79 +2058,12 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   navigator.serviceWorker.register("sw.js").catch((err) => console.error(err));
 }
 
-/* ---------- self-test: open the page with #test ---------- */
-
-function runTests() {
-  const results = [];
-  const check = (name, ok) => results.push(`${ok ? "OK  " : "FAIL"} ${name}`);
-  const found = detectFields(["Наказ № 15 від 12.05.2024, Іваненко І.І."]).map((f) => f.original);
-  check("detects number, date and name", ["№ 15", "12.05.2024", "Іваненко І.І."].every((x) => found.includes(x)));
-  const runs = ["Наказ від 12.0", "5.2024 р."];
-  const hits = findMatches(runs.join(""), ["12.05.2024"]);
-  const out = replaceInRuns(runs, hits, { "12.05.2024": "01.06.2025" });
-  check("replaces text split across runs", out.join("") === "Наказ від 01.06.2025 р.");
-  check("negative: plain text has no fields", detectFields(["просто текст"]).length === 0);
-  check("negative: empty field never matches", findMatches("текст", [""]).length === 0);
-  const sample = { format: LIB_FORMAT, templates: [{ id: "a", name: "Рапорт", savedAt: 1, fields: [{ original: "x", label: "Поле" }], docx: "UEsDBA==" }] };
-  const rejects = (text) => { try { parseLibrary(text); return false; } catch (e) { return e instanceof LibraryError; } };
-  check("library: valid file parses", parseLibrary(JSON.stringify(sample))[0].name === "Рапорт");
-  check("library: base64 round trip", new Uint8Array(base64ToBytes(bytesToBase64(new Uint8Array([80, 75, 3]).buffer))).join() === "80,75,3");
-  check("negative: wrong format rejected", rejects('{"format":"other","templates":[]}'));
-  check("negative: non-docx bytes rejected", rejects(JSON.stringify({ ...sample, templates: [{ ...sample.templates[0], docx: "AAAA" }] })));
-  const doc = parseDocument(`<w:document xmlns:w="${W_NS}"><w:body><w:p><w:r><w:t>Привіт світе</w:t></w:r></w:p></w:body></w:document>`);
-  insertText(doc.paragraphs[0], 6, "новий");
-  check("copy: text inserted inside a paragraph", runText(doc.paragraphs[0].runs[0]) === "Привіт новий світе");
-  check("negative: offset past the end goes to the last run end", locateOffset(["ab", "cd"], 99).pos === 2);
-  const marked = parseDocument(`<w:document xmlns:w="${W_NS}"><w:body><w:p><w:bookmarkStart w:id="1" w:name="x"/><w:r><w:t>a</w:t></w:r></w:p></w:body></w:document>`);
-  sanitizeClone(marked.paragraphs[0].node);
-  check("copy: bookmarks are dropped from clones", marked.xml.getElementsByTagNameNS(W_NS, "bookmarkStart").length === 0);
-  const src = [{ original: "12.05.2024", label: "Дата", value: "01.06.2025" }];
-  const first = remark(["Наказ від 12.05.2024"], src, 1);
-  check("copy: fields of a copy become independent", first.runs[0] === `Наказ від 12.05.2024${MARK}` && first.created[0].value === "01.06.2025" && first.created[0].label === "Дата (копія 1)");
-  check("negative: text without fields stays untouched", remark(["просто текст"], src, 1).created.length === 0);
-  const second = remark(first.runs, [...src, ...first.created], 2);
-  check("copy of a copy gets its own marker", second.runs[0] === `Наказ від 12.05.2024${MARK}${MARK}` && second.created[0].label === "Дата (копія 2)");
-  const savedTexts = state.texts;
-  state.texts = ["Наказ від 12.05.2024 р."];
-  check("preview: context shows the new value", contextOf({ original: "12.05.2024", value: "01.06.2025" }) === "…Наказ від 01.06.2025 р.…");
-  check("negative: context of a missing field is empty", contextOf({ original: "немає", value: "x" }) === "");
-  state.texts = savedTexts;
-  check("signature: fits the underscore line width", Math.round(fitSignature(3, 100, 16, 400, 1).w) === 100);
-  check("negative: signature never wider than the paragraph", fitSignature(3, null, 16, 150, 2).w === 150);
-  check("signature: finds the underscore line", placeholderAt("Підпис ______ Іваненко", 8)?.start === 7);
-  check("negative: plain text has no placeholder", placeholderAt("текст", 2) === null);
-  check("signature: raw index skips spaces", rawIndex("a b", 1) === 1 && rawIndex("a b", 2) === 3);
-  const sigJson = (url) => JSON.stringify({ format: LIB_FORMAT, templates: [], signatures: [{ id: "s", name: "Командир", dataUrl: url }] });
-  check("signature library: valid file parses", parseSignatures(sigJson("data:image/png;base64,AAAA"))[0].name === "Командир");
-  let badSignature = false;
-  try { parseSignatures(sigJson("http://example.com/x.png")); } catch (e) { badSignature = e instanceof LibraryError; }
-  check("negative: non-png signature rejected", badSignature);
-  const moving = parseDocument(`<w:document xmlns:w="${W_NS}"><w:body><w:p><w:r><w:t>Один</w:t></w:r></w:p><w:p><w:r><w:t>Два</w:t></w:r></w:p></w:body></w:document>`);
-  moving.paragraphs[0].node.appendChild(drawingRun(moving.xml, "rIdX", 100, 50));
-  const drawings = signatureDrawings(moving.xml);
-  check("move: a placed signature is recognised", drawings.length === 1 && isSignatureDrawing(drawings[0]));
-  moveSignature(moving.xml, moving.paragraphs, 0, 1, 0, { cx: 200, cy: 80 });
-  const count = (i) => moving.paragraphs[i].node.getElementsByTagNameNS(W_NS, "drawing").length;
-  check("move: picture changes paragraph and size", count(0) === 0 && count(1) === 1 && signatureDrawings(moving.xml)[0].getElementsByTagNameNS(DRAWING_NS.wp, "extent")[0].getAttribute("cx") === "200");
-  signatureDrawings(moving.xml)[0].getElementsByTagNameNS(DRAWING_NS.wp, "docPr")[0].setAttribute("name", "Picture 1");
-  check("negative: an ordinary picture is not a signature", !isSignatureDrawing(signatureDrawings(moving.xml)[0]));
-  let missing = false;
-  try { moveSignature(moving.xml, moving.paragraphs, 5, 1, 0, null); } catch (e) { missing = e instanceof DocxError; }
-  check("negative: moving a missing picture is rejected", missing);
-  const asFile = (data) => JSON.stringify({ format: LIB_FORMAT, templates: [], ...data });
-  const okFile = asFile({ signatures: [{ id: "s", name: "Командир", dataUrl: "data:image/png;base64,AAAA" }] });
-  check("signature file: valid file parses", parseSignatureFile(okFile).length === 1);
-  const rejectsFile = (text) => { try { parseSignatureFile(text); return false; } catch (e) { return e instanceof LibraryError; } };
-  check("negative: file without signatures rejected", rejectsFile(asFile({})) && rejectsFile("не json"));
-  say(results.join("\n"), results.some((r) => r.startsWith("FAIL")));
-}
-
-if (location.hash === "#test") runTests();
 renderLibrary();
 renderSignatures();
+renderOkiLibrary();
 
 $("menuBtn").onclick = () => ($("drawer").classList.contains("open") ? closeDrawer() : openDrawer());
-$("emptyOpen").onclick = openDrawer;
+$("emptyOpen").openDrawer;
 $("drawerClose").onclick = closeDrawer;
 $("scrim").onclick = closeDrawer;
 document.addEventListener("keydown", (e) => {
