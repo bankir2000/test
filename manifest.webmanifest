@@ -1,0 +1,17 @@
+{
+  "name": "ДокШтаб — службові документи",
+  "short_name": "ДокШтаб",
+  "description": "Службові документи за зразком: поля, довідник шаблонів, готовий .docx",
+  "lang": "uk",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14170d",
+  "theme_color": "#2b3118",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,2000 +1,1699 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <title>Лтава</title>
-
-  <!-- PWA -->
-  <link rel="manifest" href="/Ltava/manifest.json">
-  <meta name="theme-color" content="#f0f4f8">
-  <meta name="mobile-web-app-capable" content="yes">
-
-  <!-- iOS PWA -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Лтава">
-  <link rel="apple-touch-icon" href="/Ltava/icon-192.png">
-
-  <!-- TailwindCSS -->
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-
-  <!-- Vue 2 -->
-  <script src="https://cdn.jsdelivr.net/npm/vue@2.7.16/dist/vue.js"></script>
-  <!-- vue-the-mask -->
-  <script src="https://unpkg.com/vue-the-mask@0.11.1/dist/vue-the-mask.js"></script>
-
-  <style>
-    /* ===== СОНЯЧНА ТЕМА — висококонтрастна, легко читається на сонці ===== */
-
-    :root {
-      --bg:        #f0f4f8;
-      --surface:   #ffffff;
-      --border:    #94a3b8;
-      --text:      #0f172a;
-      --text-dim:  #475569;
-      --accent:    #1d4ed8;
-      --accent-h:  #1e40af;
-      --success:   #15803d;
-      --danger:    #b91c1c;
-      --danger-h:  #991b1b;
-      --cyan:      #0369a1;
-      --input-bg:  #e2e8f0;
-      --sticky-bg: #f0f4f8;
-    }
-
-    /* Темна тема */
-    body.dark {
-      --bg:        #0f172a;
-      --surface:   #1e293b;
-      --border:    #475569;
-      --text:      #f1f5f9;
-      --text-dim:  #94a3b8;
-      --accent:    #3b82f6;
-      --input-bg:  #1e293b;
-      --sticky-bg: #0f172a;
-    }
-
-    /* Плавний перехід між темами */
-    body, body * {
-      transition: background-color 0.2s, color 0.2s, border-color 0.2s;
-    }
-    /* Але не кнопки результату — вони мають свої кольори */
-    button { transition: opacity 0.15s, transform 0.15s !important; }
-
-    * { box-sizing: border-box; }
-
-    html {
-      -webkit-overflow-scrolling: touch;
-      scroll-behavior: smooth;
-    }
-
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      padding-top: env(safe-area-inset-top);
-      padding-bottom: env(safe-area-inset-bottom);
-      padding-left: env(safe-area-inset-left);
-      padding-right: env(safe-area-inset-right);
-      margin: 0;
-    }
-
-    /* Touch-targets ≥ 44px, без zoom на iOS */
-    select, input[type="text"], input[type="number"], input[type="tel"],
-    input[type="date"], input[type="time"], textarea {
-      min-height: 44px;
-      font-size: 16px !important;
-      background: var(--input-bg) !important;
-      color: var(--text) !important;
-      border: 1.5px solid var(--border) !important;
-      border-radius: 6px;
-    }
-    select option { color: var(--text); background: var(--surface); }
-    button { min-height: 44px; font-size: 15px; font-weight: 600; }
-
-    textarea { resize: vertical; }
-
-    /* Label */
-    label { color: var(--text); font-weight: 600; font-size: 14px; }
-
-    /* Липкі кнопки внизу */
-    .sticky-buttons {
-      position: sticky;
-      bottom: 0;
-      background: var(--sticky-bg);
-      padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
-      border-top: 2px solid var(--border);
-      z-index: 10;
-    }
-
-    /* На малих екранах — на всю ширину */
-    @media (max-width: 640px) {
-      .mobile-container {
-        border-radius: 0 !important;
-        box-shadow: none !important;
-        border: none !important;
-        min-height: 100dvh;
-      }
-    }
-
-    /* Секції форми */
-    .form-section {
-      border: 1.5px solid var(--border);
-      border-radius: 10px;
-      padding: 14px 12px 10px;
-      margin-bottom: 14px;
-      background: var(--surface);
-      position: relative;
-    }
-    .section-title {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 10px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .section-icon { font-size: 15px; }
-
-    /* Заповнені поля — зелена ліва межа */
-    .field-filled {
-      border-left: 4px solid #15803d !important;
-    }
-
-    /* Бейдж помилки поряд з кнопкою */
-    .copy-error-badge {
-      background: #b91c1c;
-      color: #fff;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 6px 10px;
-      border-radius: 8px;
-      white-space: nowrap;
-      flex-shrink: 0;
-      max-width: 160px;
-      line-height: 1.3;
-    }
-    body.dark .copy-error-badge {
-      background: #991b1b;
-    }
-
-    /* Анімація помилки на кнопці */
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      20%       { transform: translateX(-6px); }
-      40%       { transform: translateX(6px); }
-      60%       { transform: translateX(-4px); }
-      80%       { transform: translateX(4px); }
-    }
-    .btn-shake { animation: shake 0.4s ease; }
-
-    /* Помилка дати/часу */
-    .datetime-error {
-      border: 2px solid #b91c1c !important;
-      border-left: 4px solid #b91c1c !important;
-      background: #fef2f2 !important;
-    }
-    body.dark .datetime-error {
-      background: #2d1515 !important;
-    }
-    .datetime-error-msg {
-      color: #b91c1c;
-      font-size: 12px;
-      font-weight: 600;
-      margin-top: 3px;
-    }
-    body.dark .datetime-error-msg {
-      color: #f87171;
-    }
-
-    /* Прогрес-смужка */
-    .progress-bar-wrap {
-      height: 5px;
-      background: var(--border);
-      border-radius: 3px;
-      margin-bottom: 14px;
-      overflow: hidden;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: #15803d;
-      border-radius: 3px;
-      transition: width 0.3s;
-    }
-
-    /* Кнопки ±1хв */
-    .time-btn {
-      min-width: 32px;
-      min-height: 22px !important;
-      padding: 4px 5px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-
-    /* Кнопка Скопіювати — велика і яскрава */
-    .btn-copy {
-      font-size: 18px !important;
-      font-weight: 800 !important;
-      padding: 16px !important;
-      letter-spacing: 0.02em;
-      box-shadow: 0 3px 10px rgba(21,128,61,0.35);
-    }
-
-    /* ===== МОБІЛЬНА АДАПТАЦІЯ ===== */
-    @media (max-width: 480px) {
-
-      /* Контейнер — без відступів */
-      .mobile-container {
-        padding-left: 10px !important;
-        padding-right: 10px !important;
-      }
-
-      /* Секції — менші відступи */
-      .form-section {
-        padding: 10px 8px 8px;
-        margin-bottom: 10px;
-      }
-
-      .section-title {
-        font-size: 10px;
-        margin-bottom: 8px;
-      }
-
-      /* Поля — трохи менша висота щоб більше влізало */
-      select, input[type="text"], input[type="number"], input[type="tel"], textarea {
-        min-height: 40px !important;
-        font-size: 15px !important;
-        padding: 6px 8px !important;
-      }
-
-      /* Кнопки — компактніші але зручні */
-      button:not(.time-btn):not(.btn-copy) {
-        min-height: 40px;
-        padding: 8px 10px;
-        font-size: 13px;
-      }
-
-      /* Кнопки результату — на весь рядок по 2 */
-      .result-btn {
-        padding: 10px 4px !important;
-        font-size: 12px !important;
-      }
-
-      /* Рядок А-/Д-/К- — стискаємо мітки */
-      .adk-label {
-        font-size: 13px;
-        white-space: nowrap;
-      }
-
-      /* Прогрес-бар */
-      .progress-bar-wrap {
-        margin-bottom: 10px;
-      }
-
-      /* Липкі кнопки */
-      .sticky-buttons {
-        padding: 8px 0 calc(6px + env(safe-area-inset-bottom));
-      }
-
-      .btn-copy {
-        font-size: 16px !important;
-        padding: 13px !important;
-      }
-
-      /* Заголовок програми */
-      h1, .app-title {
-        font-size: 16px !important;
-      }
-
-      /* Мітки */
-      label {
-        font-size: 13px;
-      }
-    }
-
-    /* Планшет — трохи більші відступи і шрифти */
-    @media (min-width: 481px) and (max-width: 900px) {
-      .mobile-container {
-        padding-left: 16px !important;
-        padding-right: 16px !important;
-      }
-
-      select, input[type="text"], input[type="number"], input[type="tel"], textarea {
-        min-height: 46px !important;
-        font-size: 16px !important;
-      }
-
-      button:not(.time-btn):not(.btn-copy) {
-        min-height: 46px;
-        font-size: 15px;
-      }
-
-      .btn-copy {
-        font-size: 19px !important;
-        padding: 17px !important;
-      }
-    }
-
-    /* ===== БЕЙДЖ ФІКСОВАНОЇ ДІЇ ===== */
-    .action-badge {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 44px;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 800;
-      letter-spacing: 0.03em;
-      text-align: center;
-      color: #ffffff;
-      padding: 8px;
-      border: 3px solid transparent;
-    }
-    .action-badge--fired     { background:#92400e; border-color:#78350f; box-shadow:0 2px 8px rgba(146,64,14,.45); }
-    .action-badge--destroyed { background:#15803d; border-color:#14532d; box-shadow:0 2px 8px rgba(21,128,61,.45); }
-    .action-badge--explosion { background:#b91c1c; border-color:#991b1b; box-shadow:0 2px 8px rgba(185,28,28,.45); }
-
-    /* ===== КНОПКИ ВИБОРУ ДІЇ ===== */
-    .action-btn {
-      width:100%; min-height:44px; border-radius:8px;
-      font-size:14px; font-weight:700; color:#ffffff;
-      background:#475569; border:3px solid transparent;
-      opacity:0.75; cursor:pointer;
-      transition:opacity .15s, transform .15s, border-color .15s;
-    }
-    .action-btn:hover { opacity:.9; }
-    .action-btn--active {
-      background:#1e293b; border-color:#0f172a; opacity:1;
-      transform:scale(1.03); box-shadow:0 2px 8px rgba(0,0,0,.3);
-    }
-    body.dark .action-btn        { background:#334155; }
-    body.dark .action-btn--active{ background:#0f172a; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ДокШтаб — службові документи</title>
+<meta name="theme-color" content="#2b3118">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ДокШтаб">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx-preview@0.3.3/dist/docx-preview.min.js"></script>
+<style>
+:root{--bg:#e4e0cf;--card:#f3f0e3;--ink:#1d2214;--mut:#5a5f48;--ac:#4b5a22;--ac-ink:#f3f0e3;--sig:#d99a0b;--bd:#b9b49a;--err:#a4251c;--bar:#2b3118;--bar-ink:#e8e2c4;--cond:"Bahnschrift","Roboto Condensed","Arial Narrow",system-ui,sans-serif}
+@media(prefers-color-scheme:dark){:root{--bg:#12150c;--card:#1c2113;--ink:#e6e2cc;--mut:#9a9e84;--ac:#8fa63a;--ac-ink:#10140a;--sig:#f0b323;--bd:#39422a;--err:#ff8a7a;--bar:#0c0f07;--bar-ink:#e6e2cc}}
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}
+.top{display:flex;align-items:center;gap:12px;background:var(--bar);color:var(--bar-ink);border-bottom:3px solid var(--sig);padding:calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) 10px calc(14px + env(safe-area-inset-left))}
+.top img{width:44px;height:44px;border-radius:8px}
+.top b{display:block;font:800 1.3rem/1.1 var(--cond);letter-spacing:.16em}
+.top small{opacity:.75}
+.top button{margin-left:auto;background:var(--sig);color:#1d2214;border-color:var(--sig);font-weight:700}
+main{max-width:1240px;margin:0 auto;padding:14px calc(12px + env(safe-area-inset-right)) calc(40px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
+h2{font:700 1.1rem/1.3 var(--cond);letter-spacing:.05em;margin:0 0 8px}
+.step{display:inline-block;min-width:1.7em;margin-right:8px;background:var(--bar);color:var(--sig);font-style:normal;text-align:center;border-radius:3px}
+section{background:var(--card);border:1px solid var(--bd);border-left:4px solid var(--ac);border-radius:4px;padding:14px;margin-bottom:12px}
+.hint{color:var(--mut);font-size:.9rem;margin:0 0 10px}
+#msg{margin:8px 0 0;white-space:pre-line;font-size:.95rem}
+#msg.err{color:var(--err)}
+#work{display:grid;gap:12px}
+#work>section{margin-bottom:0}
+@media(min-width:960px){#work{grid-template-columns:minmax(0,1.5fr) minmax(340px,1fr);align-items:start}#s2{position:sticky;top:12px;z-index:5}#work #viewer{max-height:max(300px,calc(100vh - 250px));max-height:max(300px,calc(100dvh - 250px))}}
+@media(max-width:959px){html{scroll-padding-top:calc(34vh + 120px);scroll-padding-top:calc(34dvh + 120px)}#s2{position:sticky;top:0;z-index:5;padding:8px 10px;box-shadow:0 3px 8px #0004}#s2 .hint{display:none}#s2 h2{margin:0 0 4px;font-size:1rem}#s2 .tools{margin-bottom:6px}#work #viewer{max-height:34vh;max-height:34dvh}}
+#viewer{max-height:72vh;overflow:auto;border:1px solid var(--bd);border-radius:4px;background:#8a929c}
+#viewer.plain{background:var(--bg);padding:8px 12px}
+#viewer.plain p{margin:0 0 .6em;max-width:70ch}
+#viewer .docx-wrapper{background:transparent!important;padding:12px 0!important}
+#viewer section.docx{background:#fff;color:#000;margin:0 auto 12px!important;border:0}
+mark{background:#ffe27a;color:#000;border-radius:3px}
+mark.c{background:#a9d3f5}
+mark.act:not(.chg){outline:2px solid var(--bar);outline-offset:1px}
+mark.chg.act::after{outline:2px solid var(--bar);outline-offset:1px}
+mark.chg{font-size:0;background:none}
+mark.chg::after{content:attr(data-val);font-size:var(--fs,1em);background:#7fd69f;border-radius:3px}
+#fab{position:fixed;z-index:20;display:flex;gap:6px;box-shadow:0 2px 10px #0006}
+#fab[hidden],#pasteBar[hidden],#pasteMenu[hidden]{display:none}
+#fab button{background:var(--sig);color:#1d2214;border-color:var(--sig);font-weight:700}
+#pasteBar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;gap:8px;align-items:center;background:var(--bar);color:var(--bar-ink);border-top:3px solid var(--sig);padding:10px calc(12px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left))}
+#pasteBar span{flex:1;font-size:.95rem}
+#pasteMenu{position:fixed;z-index:40;display:flex;flex-direction:column;gap:6px;padding:6px;background:var(--card);border:1px solid var(--bd);border-radius:6px;box-shadow:0 2px 12px #0007}
+.row{display:grid;grid-template-columns:1fr 1fr auto;gap:6px;margin-bottom:10px;align-items:center}
+.row small{grid-column:1/3;color:var(--mut);overflow-wrap:anywhere}
+.row .ctx{grid-column:1/-1;color:var(--ink);font-style:italic}
+.tpl{display:flex;gap:6px;margin-bottom:6px}
+.tpl button:nth-last-child(2){flex:1;text-align:left}
+.thumb{height:44px;max-width:120px;object-fit:contain;background:#fff;border:1px solid var(--bd);border-radius:4px;padding:2px}
+select{font:inherit;padding:9px;border:1px solid var(--bd);border-radius:4px;background:var(--bg);color:var(--ink)}
+dialog{width:min(94vw,600px);background:var(--card);color:var(--ink);border:2px solid var(--ac);border-radius:6px;padding:14px}
+dialog::backdrop{background:#000a}
+#sigCanvas{display:block;width:100%;height:240px;margin:8px 0;border:1px solid var(--bd);border-radius:4px;touch-action:none;cursor:crosshair;background:#fff linear-gradient(transparent calc(100% - 52px),#c9ccd3 calc(100% - 52px),#c9ccd3 calc(100% - 51px),transparent calc(100% - 51px))}
+#sigMsg{color:var(--err);margin:6px 0;min-height:1.3em}
+#viewer img.sig{touch-action:none;cursor:grab;outline:1px dashed var(--sig);user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.ghost{position:fixed;z-index:60;pointer-events:none;opacity:.8;background:#fff;box-shadow:0 2px 10px #0007}
+p.dropTarget{outline:2px dashed var(--sig);outline-offset:1px}
+#dropMark{position:fixed;z-index:55;width:2px;background:var(--sig);pointer-events:none}
+#dropMark[hidden]{display:none}
+.tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.save{display:grid;grid-template-columns:1fr auto;gap:6px;margin:12px 0}
+input[type=text],input:not([type]){width:100%;padding:9px;border:1px solid var(--bd);border-radius:4px;background:var(--bg);color:var(--ink);font:inherit}
+button{font:inherit;padding:10px 14px;border-radius:4px;border:1px solid var(--bd);background:var(--card);color:var(--ink);cursor:pointer;min-height:44px}
+button.pri{background:var(--ac);color:var(--ac-ink);border-color:var(--ac);font-weight:700;width:100%}
+button:focus-visible,input:focus-visible{outline:3px solid var(--sig);outline-offset:1px}
+</style>
 </head>
-
 <body>
-
-  <!-- Кореневий елемент Vue-додатку -->
-  <div id="app">
-    <div class="mobile-container container max-w-xl mx-auto px-4 pt-4 pb-2 sm:rounded-xl sm:my-5 sm:shadow-lg" style="background:var(--surface)">
-      <!-- Форма. @submit.prevent блокує стандартну відправку -->
-      <form id="form" @submit.prevent>
-        <div class="flex flex-col gap-1">
-
-          <!-- КНОПКА ОНОВЛЕННЯ -->
-          <div class="flex justify-end mb-1">
-            <button
-              type="button"
-              @click="reloadPage"
-              title="Оновити сторінку"
-              style="background:transparent; border:none; font-size:1.3rem; cursor:pointer; opacity:0.55; padding:2px 4px;"
-            >🔄</button>
-          </div>
-
-          <!-- ПРОГРЕС -->
-          <div class="progress-bar-wrap">
-            <div class="progress-bar-fill" :style="{width: formProgress + '%'}"></div>
-          </div>
-
-          <!-- БЛОК 1: ХТО -->
-          <div class="form-section">
-            <div class="section-title"><span class="section-icon">👤</span> Хто</div>
-
-            <div class="flex flex-col mb-3">
-              <label class="mb-1">Підрозділ:</label>
-              <select
-                v-model="formData.pidrozdil"
-                :class="['w-full p-2 rounded', formData.pidrozdil ? 'field-filled' : '']"
-              >
-                <option value="" disabled hidden>Оберіть зі списку</option>
-                <option v-for="unit in units" :key="unit" :value="unit">{{ unit }}</option>
-              </select>
-            </div>
-
-            <div class="flex flex-col mb-1">
-              <label class="mb-1">Позивний:</label>
-              <div class="flex gap-2 w-full">
-                <select
-                  v-model="formData.pozivniyPrefix"
-                  :class="['w-1/3 p-2 rounded', formData.pozivniyPrefix ? 'field-filled' : '']"
-                >
-                  <option value="" disabled hidden>Оберіть</option>
-                  <option v-for="prefix in prefixes" :key="prefix" :value="prefix">{{ prefix }}</option>
-                </select>
-                <the-mask
-                  type="text"
-                  v-model="formData.pozivniy"
-                  :class="['w-2/3 p-2 rounded', formData.pozivniy ? 'field-filled' : '']"
-                  mask="AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-                  :tokens="hexTokens"
-                  placeholder="Впишіть"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- БЛОК 2: ДЕ / КОЛИ -->
-          <div class="form-section">
-            <div class="section-title"><span class="section-icon">📍</span> Де / Коли</div>
-
-            <div class="flex gap-2 mb-3">
-              <div class="flex flex-col flex-1">
-                <label class="mb-1">Н.П.:</label>
-                <the-mask
-                  type="text"
-                  v-model="formData.naseleniyPunkt"
-                  :class="['w-full p-2 rounded', formData.naseleniyPunkt ? 'field-filled' : '']"
-                  mask="BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
-                  :tokens="hexTokens"
-                  placeholder="Впишіть"
-                />
-              </div>
-              <div class="flex flex-col w-2/5">
-                <label class="mb-1">Область:</label>
-                <select
-                  v-model="formData.oblast"
-                  :class="['w-full p-2 rounded', formData.oblast ? 'field-filled' : '']"
-                >
-                  <option value="" disabled hidden>Обл.</option>
-                  <option v-for="region in regions" :key="region" :value="region">{{ region }}</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="flex flex-col mb-1">
-              <div class="flex items-center justify-between mb-1">
-                <label>⏱ Час виявлення:</label>
-                <div class="flex gap-2">
-                  <button type="button" @click="adjustTime(-1)"
-                    class="time-btn hover:opacity-90 text-white rounded" style="background:var(--cyan)">−1 хв.</button>
-                  <button type="button" @click="adjustTime(1)"
-                    class="time-btn hover:opacity-90 text-white rounded" style="background:var(--cyan)">+1 хв.</button>
-                </div>
-              </div>
-              <input
-                type="text"
-                v-model="formData.datetime"
-                @input="datetimeError = ''"
-                @change="parseDatetime"
-                placeholder="дд.мм.рррр гг:хх"
-                :class="['w-full p-2 rounded', datetimeError ? 'datetime-error' : (formData.datetime ? 'field-filled' : '')]"
-              />
-              <div v-if="datetimeError" class="datetime-error-msg">{{ datetimeError }}</div>
-            </div>
-          </div>
-
-          <!-- БЛОК 3: ЗАСІБ -->
-          <div class="form-section">
-            <div class="section-title"><span class="section-icon">🔫</span> Засіб</div>
-            <div class="flex flex-col gap-2">
-              <div v-for="(w, index) in formData.weapons" :key="index" class="flex gap-2 items-center">
-                <select
-                  v-model="w.name"
-                  :class="['w-full p-2 rounded', w.name ? 'field-filled' : '']"
-                >
-                  <option value="" disabled hidden>Оберіть зі списку</option>
-                  <option v-for="weaponOption in weapons" :key="weaponOption" :value="weaponOption">{{ weaponOption }}</option>
-                </select>
-                <button
-                  type="button"
-                  class="hover:opacity-90 text-white rounded px-3 py-2" style="background:var(--danger)"
-                  @click="removeWeapon(index)"
-                  v-if="formData.weapons.length > 1"
-                >✕</button>
-              </div>
-              <button type="button" @click="addWeapon"
-                class="hover:opacity-90 text-white rounded px-3 py-2 mt-1 self-start" style="background:var(--accent)">
-                + Додати зброю
-              </button>
-            </div>
-          </div>
-
-          <!-- БЛОК 4: РЕЗУЛЬТАТ -->
-          <div class="form-section">
-            <div class="section-title"><span class="section-icon">🎯</span> Результат</div>
-
-            <div class="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                v-for="result in results"
-                :key="result"
-                @click="formData.result = result"
-                :style="getResultStyle(result)"
-                class="result-btn rounded py-3 px-2 font-bold text-sm transition-all"
-              >{{ result }}</button>
-            </div>
-          </div>
-
-          <!-- БЛОК 5: ЦІЛЬ -->
-          <div class="form-section">
-            <div class="section-title"><span class="section-icon">🎯</span> Ціль</div>
-
-            <div class="flex gap-2 mb-3">
-              <div class="flex flex-col w-1/2">
-                <label class="mb-1">№ цілі:</label>
-                <input type="text" v-model="formData.targetNumber" v-mask="'####'" placeholder="0000"
-                  :class="['w-full p-2 rounded', formData.targetNumber ? 'field-filled' : '']" />
-                <span class="text-xs mt-1 opacity-60">{{ formData.targetNumber ? '' : 'якщо порожньо → б/н' }}</span>
-              </div>
-              <div class="flex flex-col w-1/2">
-                <label class="mb-1">Висота (м):</label>
-                <input type="number" v-model="formData.height" inputmode="numeric" placeholder="0" min="0"
-                  :class="['w-full p-2 rounded', formData.height ? 'field-filled' : '']" />
-              </div>
-            </div>
-
-          <!-- ОПИС, якщо зброя застосовувалась (не вибух, не "не застосовувалась") -->
-          <div v-if="formData.result !== 'вибух' && formData.result !== 'не застосовувалась'" class="my-4">
-            <label>Опис:</label>
-            <div class="flex flex-col gap-2">
-              <!-- А, Д, К -->
-              <div class="flex flex-row gap-2">
-                <div class="flex items-center gap-1 w-1/3">
-                  <span class="adk-label">А-</span>
-                  <input
-                    type="number"
-                    v-model="formData.angle"
-                    inputmode="numeric"
-                    placeholder="0"
-                    min="0"
-                    max="360"
-                    class="w-full p-2 rounded rounded"
-                    @input="onAngleInput"
-                  />
-                </div>
-                <div class="flex items-center gap-1 w-1/3">
-                  <span class="adk-label">Д-</span>
-                  <input
-                    type="number"
-                    v-model="formData.distance"
-                    inputmode="numeric"
-                    placeholder="0"
-                    min="0"
-                    class="w-full p-2 rounded rounded"
-                  />
-                </div>
-                <div class="flex items-center gap-1 w-1/3">
-                  <span class="adk-label">К-</span>
-                  <input
-                    type="number"
-                    v-model="formData.krok"
-                    inputmode="numeric"
-                    placeholder="0"
-                    min="0"
-                    max="360"
-                    class="w-full p-2 rounded rounded"
-                    @input="onKrokInput"
-                  />
-                </div>
-              </div>
-
-              <!-- Кількість, клас цілі -->
-              <div class="flex flex-row gap-2 mt-2">
-                <!-- Кількість цілей -->
-                <div class="w-1/2">
-                  <select
-                    v-model="formData.targetCount"
-                    :class="['w-full p-2 rounded rounded', formData.targetCount ? 'text-gray-900' : 'text-gray-400']"
-                  >
-                    <option value="" disabled hidden>Кількість</option>
-                    <option v-for="n in 9" :key="n" :value="n">{{ n }}</option>
-                  </select>
-                </div>
-
-                <!-- Клас цілі (БПЛА/КР) + тип БПЛА -->
-                <div class="w-1/2 flex flex-col gap-2">
-                  <select
-                    v-model="formData.targetClass"
-                    :class="['w-full p-2 rounded rounded', formData.targetClass ? 'text-gray-900' : 'text-gray-400']"
-                  >
-                    <option value="" disabled hidden>Клас</option>
-                    <option value="БПЛА">БПЛА</option>
-                    <option value="КР">КР</option>
-                  </select>
-                  <select
-                    v-if="formData.targetClass === 'БПЛА'"
-                    v-model="formData.type"
-                    :class="['w-full p-2 rounded rounded', formData.type ? 'text-gray-900' : 'text-gray-400']"
-                  >
-                    <option value="" disabled hidden>Тип БПЛА</option>
-                    <option v-for="type in uavTypes" :key="type" :value="type">{{ type }}</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-
-            <!-- ── "не застосовувалась": А-, К-, Д-, Кількість, Вибір цілі, Виявлено ── -->
-            <div v-if="formData.result === 'не застосовувалась'" class="mt-3 space-y-2">
-
-              <!-- А, К, Д -->
-              <div class="flex flex-row items-center gap-2 w-full">
-                <span class="adk-label w-auto">А-</span>
-                <input
-                  type="number"
-                  v-model="formData.angle"
-                  inputmode="numeric"
-                  placeholder="0"
-                  min="0"
-                  max="360"
-                  class="w-full p-2 rounded"
-                  @input="onAngleInput"
-                />
-                <span class="adk-label w-auto">К-</span>
-                <input
-                  type="number"
-                  v-model="formData.krok"
-                  inputmode="numeric"
-                  placeholder="0"
-                  min="0"
-                  max="360"
-                  class="w-full p-2 rounded"
-                  @input="onKrokInput"
-                />
-                <span class="adk-label w-auto">Д-</span>
-                <input
-                  type="number"
-                  v-model="formData.distance"
-                  inputmode="numeric"
-                  placeholder="0"
-                  min="0"
-                  class="w-full p-2 rounded"
-                />
-              </div>
-
-              <!-- Кількість і Вибір цілі -->
-              <div class="flex gap-2">
-                <select
-                  v-model="formData.targetCount"
-                  :class="['w-full p-2 rounded', formData.targetCount ? 'text-gray-900' : 'text-gray-400']"
-                >
-                  <option value="" disabled hidden>Кількість</option>
-                  <option v-for="n in 9" :key="n" :value="n">{{ n }}</option>
-                </select>
-                <select
-                  v-model="formData.detectionTarget"
-                  :class="['w-full p-2 rounded', formData.detectionTarget ? 'text-gray-900' : 'text-gray-400']"
-                >
-                  <option value="" disabled hidden>Вибір цілі</option>
-                  <option v-for="t in detectionTargets" :key="t" :value="t">{{ t }}</option>
-                </select>
-              </div>
-
-              <!-- Виявлено -->
-              <label class="mb-1 block">Виявлено:</label>
-              <div class="grid grid-cols-1 gap-2">
-                <button
-                  v-for="mode in detectionModes"
-                  :key="mode.value"
-                  type="button"
-                  @click="formData.detectionMode = mode.value"
-                  :class="['result-btn rounded py-3 px-2 font-bold text-sm transition-all',
-                           formData.detectionMode === mode.value ? 'detection-btn--active' : 'detection-btn']"
-                  :style="getDetectionStyle(mode.value)"
-                >{{ mode.label }}</button>
-              </div>
-            </div>
-
-            <!-- ── Дія: "не знищено" / "ЗНИЩЕНО" / інший результат ── -->
-            <div
-              v-if="formData.result && formData.result !== 'вибух' && formData.result !== 'не застосовувалась'"
-              class="mt-3"
-            >
-              <label class="mb-2 block">Дія:</label>
-              <div
-                v-if="formData.result === 'не знищено'"
-                class="action-badge action-badge--fired"
-              >💥 обстріляно</div>
-              <div
-                v-else-if="formData.result === 'ЗНИЩЕНО'"
-                class="action-badge action-badge--destroyed"
-              >✅ ЗНИЩЕНО</div>
-              <div v-else class="grid grid-cols-2 gap-2">
-                <button
-                  v-for="action in actions"
-                  :key="action"
-                  type="button"
-                  @click="formData.action = action"
-                  :class="['action-btn', formData.action === action ? 'action-btn--active' : '']"
-                >{{ action }}</button>
-              </div>
-            </div>
-
-            <!-- ── Вибух: А-, Д-, кількість, місце, стан ── -->
-            <div v-if="formData.result === 'вибух'" class="mt-3 space-y-2">
-              <div class="flex w-full flex-row items-center gap-2">
-                <span class="adk-label w-auto">А-</span>
-                <input
-                  type="number"
-                  v-model="formData.angle"
-                  inputmode="numeric"
-                  placeholder="0"
-                  min="0"
-                  max="360"
-                  class="w-full p-2 rounded"
-                  @input="onAngleInput"
-                />
-                <span class="adk-label w-auto">Д-</span>
-                <input
-                  type="number"
-                  v-model="formData.distance"
-                  inputmode="numeric"
-                  placeholder="0"
-                  min="0"
-                  class="w-full p-2 rounded"
-                />
-              </div>
-              <div class="flex gap-2">
-                <div class="action-badge action-badge--explosion" style="flex:1">💣 вибух</div>
-                <select
-                  v-model="formData.explosionCount"
-                  :class="['w-full p-2 rounded', formData.explosionCount ? 'text-gray-900' : 'text-gray-400']"
-                >
-                  <option value="" disabled hidden>Кількість</option>
-                  <option v-for="n in 9" :key="n" :value="n">{{ n }}</option>
-                </select>
-                <select
-                  v-model="formData.explosionPlace"
-                  :class="['w-full p-2 rounded', formData.explosionPlace ? 'text-gray-900' : 'text-gray-400']"
-                >
-                  <option value="" disabled hidden>Місце</option>
-                  <option value="на землі">на землі</option>
-                  <option value="у повітрі">у повітрі</option>
-                </select>
-              </div>
-              <input
-                type="text"
-                v-model="formData.explosionStatus"
-                class="w-full p-2 rounded"
-                placeholder="Стан справ на ОКІ"
-                maxlength="64"
-              />
-            </div>
-
-            <!-- ── Кнопка "Свій" для певних типів цілей ── -->
-            <div
-              v-if="showSviyButton"
-              class="flex items-center gap-3 mt-3"
-            >
-              <span class="text-sm opacity-60">Натисни стане Свій</span>
-              <button
-                type="button"
-                @click="formData.isSviy = !formData.isSviy"
-                :class="['px-4 py-2 rounded font-bold text-sm transition-all', formData.isSviy ? 'bg-green-600 text-white' : 'bg-red-600 text-white']"
-              >Свій</button>
-            </div>
-          </div>
-
-          <!-- БЛОК 5: РОЗХІД / ОПИС -->
-          <div class="form-section" v-if="showRozxid || showViktorAmmo || showAk74 || showDshk || formData.result === 'вибух' || formData.result !== ''">
-            <div class="section-title"><span class="section-icon">📦</span> Розхід </div>
-
-          <div v-if="showRozxid">
-            <div class="mb-2 font-semibold">Розхід:</div>
-            <div class="flex flex-col gap-2">
-              <!-- Один рядок розходу БК -->
-              <div v-for="(item, index) in formData.rozxid" :key="index" class="flex flex-col gap-2 items-start">
-                <!-- Тип боєприпаса -->
-                <select
-                  v-model="item.type"
-                  :class="['w-full p-2 rounded rounded', item.type ? 'text-gray-900' : 'text-gray-400']"
-                >
-                  <option value="" disabled hidden>Оберіть зі списку</option>
-                  <option v-for="ammo in ammoTypes" :key="ammo" :value="ammo">{{ ammo }}</option>
-                </select>
-                <!-- Кількість + кнопка видалення рядка -->
-                <div class="flex w-full gap-2">
-                  <input
-                    type="text"
-                    v-model="item.quantity"
-                    placeholder="Кількість"
-                    v-mask="'####'"
-                    class="w-full p-2 rounded rounded"
-                  />
-                  <button
-                    type="button"
-                    class="hover:opacity-90 text-white rounded px-3 py-2" style="background:var(--danger)"
-                    @click="removeRozxid(index)"
-                  >
-                    Видалити
-                  </button>
-                </div>
-              </div>
-              <!-- Кнопка додати ще один рядок розходу -->
-              <button
-                type="button"
-                @click="addRozxid"
-                class="hover:opacity-90 text-white rounded px-3 py-2 mt-2" style="background:var(--accent)"
-              >
-                Додати розхід
-              </button>
-            </div>
-          </div>
-
-          <!-- VIKTOR MR-2 БЛОК РОЗХОДУ (замість стандартного Розхід) -->
-          <div v-if="showViktorAmmo" class="flex flex-col gap-3 mb-2">
-            <div class="mb-1">Розхід БК ЗУ MR2 VIKTOR 14,5мм:</div>
-            <div class="flex flex-col gap-1">
-              <label class="text-sm font-semibold" style="color:var(--text)">ЗУ MR2 VIKTOR 14,5мм, стрічка 1БЗТ-3МДЗ</label>
-              <input
-                type="tel"
-                v-model="formData.viktorAmmo1"
-                placeholder="Кількість"
-                class="w-full p-2 rounded rounded"
-              />
-            </div>
-            <div class="flex flex-col gap-1">
-              <label class="text-sm font-semibold" style="color:var(--text)">ЗУ MR2 VIKTOR 14,5мм, стрічка 1БЗТ-2МДЗ</label>
-              <input
-                type="tel"
-                v-model="formData.viktorAmmo2"
-                placeholder="Кількість"
-                class="w-full p-2 rounded rounded"
-              />
-            </div>
-            <div class="flex flex-col gap-1">
-              <label class="text-sm font-semibold" style="color:var(--text)">ЗУ MR2 VIKTOR 14,5мм, стрічка 1БЗТ-1Б32-2МДЗ</label>
-              <input
-                type="tel"
-                v-model="formData.viktorAmmo3"
-                placeholder="Кількість"
-                class="w-full p-2 rounded rounded"
-              />
-            </div>
-          </div>
-
-          <!-- АК74 БЛОК РОЗХОДУ -->
-          <div v-if="showAk74" class="flex flex-col gap-3 mb-2">
-            <div class="flex flex-col gap-1">
-              <label class="text-sm font-semibold" style="color:var(--text)">АК74 - 5.45мм 1ТЗ-2ПС</label>
-              <input
-                type="tel"
-                v-model="formData.ak74Ammo"
-                placeholder="Кількість"
-                class="w-full p-2 rounded rounded"
-              />
-            </div>
-
-            <!-- Додатковий розхід поряд зі стрілецькою зброєю -->
-            <div class="mt-1">
-              <div class="mb-1 font-semibold" style="font-size:13px;color:var(--text)">Додатковий розхід БК:</div>
-              <div class="flex flex-col gap-2">
-                <div v-for="(item, idx) in formData.ak74ExtraRozxid" :key="'ak74x'+idx" class="flex flex-col gap-2 items-start">
-                  <select
-                    v-model="item.type"
-                    :class="['w-full p-2 rounded', item.type ? 'text-gray-900' : 'text-gray-400']"
-                  >
-                    <option value="" disabled hidden>Оберіть зі списку</option>
-                    <option v-for="ammo in ammoTypes" :key="ammo" :value="ammo">{{ ammo }}</option>
-                  </select>
-                  <div class="flex w-full gap-2">
-                    <input
-                      type="text"
-                      v-model="item.quantity"
-                      placeholder="Кількість"
-                      v-mask="'####'"
-                      class="w-full p-2 rounded"
-                    />
-                    <button
-                      type="button"
-                      class="hover:opacity-90 text-white rounded px-3 py-2"
-                      style="background:var(--danger)"
-                      @click="formData.ak74ExtraRozxid.splice(idx, 1)"
-                    >Видалити</button>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  @click="formData.ak74ExtraRozxid.push({ type: '', quantity: null })"
-                  class="hover:opacity-90 text-white rounded px-3 py-2 mt-1"
-                  style="background:var(--accent)"
-                >+ Додати розхід</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- ДШК БЛОК РОЗХОДУ -->
-          <div v-if="showDshk" class="flex flex-col gap-3 mb-2">
-            <div class="flex flex-col gap-1">
-              <label class="text-sm font-semibold" style="color:var(--text)">ДШК 12.7х108мм — стрічка 1БЗТ-3Б32</label>
-              <input
-                type="tel"
-                v-model="formData.dshkAmmo"
-                placeholder="Кількість"
-                class="w-full p-2 rounded rounded"
-              />
-            </div>
-
-            <!-- Додатковий розхід ДШК -->
-            <div class="mt-1">
-              <div class="mb-1 font-semibold" style="font-size:13px;color:var(--text)">Додатковий розхід БК:</div>
-              <div class="flex flex-col gap-2">
-                <div v-for="(item, idx) in formData.dshkExtraRozxid" :key="'dshkx'+idx" class="flex flex-col gap-2 items-start">
-                  <select
-                    v-model="item.type"
-                    :class="['w-full p-2 rounded', item.type ? 'text-gray-900' : 'text-gray-400']"
-                  >
-                    <option value="" disabled hidden>Оберіть зі списку</option>
-                    <option v-for="ammo in ammoTypes" :key="ammo" :value="ammo">{{ ammo }}</option>
-                  </select>
-                  <div class="flex w-full gap-2">
-                    <input
-                      type="text"
-                      v-model="item.quantity"
-                      placeholder="Кількість"
-                      v-mask="'####'"
-                      class="w-full p-2 rounded"
-                    />
-                    <button
-                      type="button"
-                      class="hover:opacity-90 text-white rounded px-3 py-2"
-                      style="background:var(--danger)"
-                      @click="formData.dshkExtraRozxid.splice(idx, 1)"
-                    >Видалити</button>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  @click="formData.dshkExtraRozxid.push({ type: '', quantity: null })"
-                  class="hover:opacity-90 text-white rounded px-3 py-2 mt-1"
-                  style="background:var(--accent)"
-                >+ Додати розхід</button>
-              </div>
-            </div>
-          </div>
-
-          </div><!-- /section 5 -->
-
-          <!-- КОМЕНТАР -->
-          <div class="form-section">
-            <div class="flex flex-col">
-              <label class="mb-1">💬 Коментар:</label>
-              <textarea
-                v-model="formData.comment"
-                rows="3"
-                :class="['w-full p-2 rounded', formData.comment ? 'field-filled' : '']"
-                placeholder="Додаткові відомості..."
-              ></textarea>
-            </div>
-          </div>
-
-          <!-- БЛОК 6: СКЛАД -->
-          <div class="form-section">
-            <div class="section-title"><span class="section-icon">🪖</span> Склад</div>
-
-            <div class="flex flex-col gap-3">
-              <div
-                v-for="(person, index) in formData.personnel"
-                :key="index"
-                class="flex flex-col gap-2 pb-3"
-                style="border-bottom:1px solid var(--border)"
-              >
-                <div class="flex gap-2">
-                  <select
-                    v-model="person.rank"
-                    :class="['w-2/5 p-2 rounded', person.rank ? 'field-filled' : '']"
-                  >
-                    <option value="" disabled hidden>Звання</option>
-                    <option v-for="rank in ranks" :key="rank" :value="rank">{{ rank }}</option>
-                  </select>
-                  <input
-                    type="text"
-                    v-model="person.pib"
-                    placeholder="Прізвище І.Б."
-                    :class="['flex-1 p-2 rounded', person.pib ? 'field-filled' : '']"
-                  />
-                </div>
-                <div class="flex items-center justify-between">
-                  <label class="flex items-center gap-2 cursor-pointer select-none" style="min-height:44px">
-                    <input
-                      type="checkbox"
-                      v-model="person.onBch"
-                      style="width:22px;height:22px;accent-color:var(--accent);cursor:pointer"
-                    />
-                    <span style="font-weight:600">на БЧ</span>
-                  </label>
-                  <button type="button"
-                    class="hover:opacity-90 text-white rounded px-3 py-2" style="background:var(--danger)"
-                    @click="removePersonnel(index)">✕ Видалити</button>
-                </div>
-              </div>
-
-              <button type="button" @click="addPersonnel"
-                class="hover:opacity-90 text-white rounded px-3 py-2 self-start" style="background:var(--accent)">
-                + Додати бійця
-              </button>
-
-            </div>
-          </div>
-
-          <!-- КНОПКИ: СКОПІЮВАТИ / ОЧИСТИТИ -->
-          <div class="sticky-buttons flex flex-col items-start gap-2 mt-4">
-            <!-- Перемикач день/ніч -->
-            <button
-              type="button"
-              @click="toggleTheme"
-              class="self-end rounded-full px-4 py-1 text-sm font-semibold mb-1"
-              :style="darkMode
-                ? 'background:#f1f5f9;color:#0f172a'
-                : 'background:#0f172a;color:#f1f5f9'"
-            >{{ darkMode ? '☀️ День' : '🌙 Ніч' }}</button>
-            <!-- Копіює / Поширює сформований текст -->
-            <div class="w-full flex items-center gap-2">
-              <button
-                type="button"
-                @click="copyData"
-                :style="{background: copySuccess ? '#16a34a' : '#15803d', boxShadow: copySuccess ? 'none' : '0 3px 12px rgba(21,128,61,0.4)'}" class="btn-copy rounded flex-1 text-white transition-all hover:opacity-90"
-              >
-                {{ copySuccess ? '✓ Скопійовано!' : 'Скопіювати' }}
-              </button>
-              <button
-                type="button"
-                @click="shareData"
-                class="btn-copy rounded flex-1 text-white transition-all hover:opacity-90"
-                style="background:#0369a1; box-shadow:0 3px 12px rgba(3,105,161,0.4);"
-              >
-                📤 Поширити
-              </button>
-              <div v-if="datetimeError" class="copy-error-badge">⚠️ {{ datetimeError }}</div>
-            </div>
-
-          </div>
-        </div>
-      </form>
-    </div>
+<header class="top">
+  <img src="icon.svg" alt="">
+  <div><b>ДОКШТАБ</b><small>Службові документи за зразком</small></div>
+  <button id="inst" type="button" hidden>Встановити</button>
+</header>
+<main>
+<p id="iosHint" class="hint" hidden>Щоб встановити на iPhone чи iPad: кнопка «Поділитися» у Safari, потім «На початковий екран».</p>
+<section>
+  <h2><i class="step">1</i>Зразок документа</h2>
+  <input type="file" id="file" accept=".docx">
+  <p id="msg" role="status"></p>
+</section>
+<section id="lib">
+  <h2>Довідник шаблонів</h2>
+  <input id="q" placeholder="Пошук за назвою" style="margin-bottom:8px">
+  <div class="tools">
+    <button id="exp" type="button">Експорт довідника</button>
+    <button id="imp" type="button">Імпорт довідника</button>
+    <input type="file" id="impFile" accept=".json,application/json" hidden>
   </div>
-
-  <!-- ЛОГІКА VUE -->
-  <script>
-    // Підключаємо плагін масок
-    Vue.use(VueTheMask);
-
-    new Vue({
-      el: '#app',
-
-      data: {
-        copySuccess: false,
-        datetimeError: '',
-        darkMode: false,
-        hexTokens: { 
-          A: { pattern: /[а-яА-ЯІіЇїЄєҐґ0-9 \-]/, transform: v => v.toUpperCase() }, 
-          B: { pattern: /[а-яА-ЯІіЇїЄєҐґ ]/, transform: v => v.toUpperCase() }
-        },
-
-        formData: {
-          pidrozdil: '',
-          pozivniyPrefix: '',
-          pozivniy: '',
-          naseleniyPunkt: '',
-          oblast: '',
-          date: '',
-          time: '',
-          datetime: '',
-          weapons: [{ name: '' }],
-          targetNumber: '',
-          height: '',
-          result: '',
-          angle: '',
-          krok: '',
-          distance: '',
-          action: '',
-          targetCount: '',
-          targetClass: '',
-          type: '',
-          detectionMode: '',
-          detectionTarget: '',
-          isSviy: false,
-          rozxid: [{ type: '', quantity: null }],
-          viktorAmmo1: '',
-          viktorAmmo2: '',
-          viktorAmmo3: '',
-          ak74Ammo: '',
-          ak74ExtraRozxid: [{ type: '', quantity: null }],
-          dshkAmmo: '',
-          dshkExtraRozxid: [{ type: '', quantity: null }],
-          personnel: [{ rank: '', pib: '', onBch: false }],
-          explosionCount: '',
-          explosionPlace: '',
-          explosionStatus: '',
-          comment: ''
-        },
-
-        units: [    
- '13 озкб',
- '116 обр ТРО',
- '225 зрп',
- '643 озкб',
-'1 брОП НГУ',
-'1 обр ТРО',
-'101 обро ГШ',
-'102 обр ТРО',
-'1020 зрап',
-'1021 зап',
-'1025 зрап',
-'1027 зрап',
-'103 обр ТРО',
-'104 обр ТРО',
-'104 ОАБ',
-'105 обр ТРО',
-'105 ПрикЗ',
-'106 обр ТРО',
-'110 ак',
-'112 обр ТРО',
-'1121 зрап',
-'1129 зрп',
-'114 брта',
-'114 обр ТРО',
-'115 обр ТРО',
-'1163 бо',
-'117 обр ТРО',
-'118 обр ТРО',
-'119 обр ТРО',
-'120 обр ТРО',
-'121 ак',
-'121 обр ТРО',
-'125 овмбр',
-'127 обр ТРО',
-'1322 АББ',
-'138 ртбр',
-'14 зрбр',
-'156 зрп',
-'164 ртбр',
-'168 обр ТРО',
-'169 ПРТБ',
-'172 брез',
-'178 брез',
-'17 БАТЗ',
-'1827 ЦАБО',
-'19 об НГУ',
-'2 обр НГУ',
-'20 ОЦЛЗ',
-'21 ак',
-'210 ОШП',
-'21 обр НГУ',
-'222 АББ',
-'223 зрп',
-'229 ОЦЗ',
-'230 ОБЗ',
-'232 ОБЗ',
-'2320 ОЦЗ ВТМ',
-'25 брТрА',
-'2572 ОЦР ОВТ',
-'27 обр НГУ',
-'28 п НГУ',
-'3 Арс АЗУ',
-'302 зрбр',
-'303 Арс',
-'3097 ЦЗП',
-'31 опз та ртз',
-'31 п НГУ',
-'332 Арс РОБ',
-'3343 ОЦЗ ВТМ',
-'36 п НГУ',
-'37 п НГУ',
-'38 п НГУ',
-'39 брта',
-'39 зрп',
-'3 ПрикЗ',
-'4 бр НГУ',
-'40 брта',
-'40 п НГУ',
-'433 ОЦЗ ЗУ ОВТ',
-'434 Арс',
-'45 п НГУ',
-'48 Арс',
-'540 зрбр',
-'59 ОШбр',
-'6 АСБ',
-'62 Арс Озб',
-'630 озкб',
-'631 озкб',
-'635 озкб',
-'637 озкб',
-'638 озкб',
-'642 озкб',
-'644 озкб',
-'645 озкб',
-'646 озкб',
-'650 озкб',
-'72 омбр',
-'831 брта',
-'90 АББ',
-'9 ПрикЗ',
-'94 ЦЗП',
-'96 зрбр',
-'ГУР',
-'ДПСУ',
-'ДФТГ',
-'НГУ',
-'НПУ',
-'ОПБр',
-'ПвК Центр'
-        ],
-
-        prefixes: ['МВГ', 'ВГ'],
-
-        regions: [
-          'Вінницька', 'Житомирська', 'Кіровоградська',
-          'Київська', 'Одеська', 'Полтавська',
-          'Сумська', 'Черкаська', 'Чернігівська'
-        ],
-
-        weapons: [
-          'із ЗКУ Viktor MR-2 14.5',
-          'зі стрілецької зброї 5.45',
-        'зі стрілецької зброї 5.56',
-        'із ВКК Browning M2 12.7',
-        'із ЗУ 23-2 23мм',
-          'із АЗГ М-75 20мм.',
-          'із ЗУ 23-4 Рокач (Шилка) 23мм',
-          'із ПЗРК Stinger',
-          'із ВКК ДШК 12.7',
-          'зі стрілецької зброї 7.62',
-          'із ВКК Canik M2 12.7',
-          'із ВКК SAR 127 MT 12.7',
-          'із НСВ Утьос 12.7',
-          'із ВКК ДШК 12.7',
-          'із ВКК КПВТ 14.5',
-          'із ЗКУ-1(2) 14.5',
-          'із ЗУ М-55 20мм',
-          'із ЗУ VZ-53/59 Praga 30мм',
-          'із гармати HP 30мм',
-          'із АЗГ L-70 Bofors 40мм.',
-          'із АЗГ С-60 57мм',
-          'із ЗСАУ Cheetah 35мм',
-          'із ЗСУ 1А2 Gepard 35мм',
-          'із ЗСАУ 2С6 Тунгуска',
-          'із ПЗРК RBS-70',
-          'із ПЗРК Ігла (Ігла - 1)',
-          'із ПЗРК FN-6',
-          'із ПЗРК Piorun',
-          'із ПЗРК Стріла-3',
-          'із МОПУ Джигіт',
-          'із ЗРК STASH',
-          'із ЗРК DASH',
-          'із ЗРК Raven',
-          'із ЗРК Avanger',
-          'із ЗРК Оса АКМ',
-          'із ЗРК CA-95',
-          'із ЗРК ITEL-1,5'
-       ],
-
-        ammoTypes: [
-          'Розхід ЗКР', 
-          'Розхід НБЖ',
-          'Снаряд 57х348 мм (АЗГ С-60)',
-          'Снаряд 40х365 мм (L-70 Bofors)',
-          'Снаряд 35х228 мм (Gepard)',
-          'Снаряд 30х210 мм (VZ-53/59 Praga)',
-          'Снаряд 30х155 мм (HP-30)',
-          'Набій 23х152 мм (ЗУ-23-4) АРІ',
-          'Набій 23х152 мм (ЗУ-23-2) ОФЗ',
-          'Набій 23х152 мм (ЗУ-23-2) БЗТ',
-          'Набій 23х152 мм (ЗУ-23-2) ОФЗТ',
-          'Набій 20х110 мм (АЗГ М-75, M55) БЗТ',
-          'Набій 20х110 мм (АЗГ М-75, M55) ТЗ',
-          'Набій 20х110 мм (АЗГ М-75, M55) ТЗО',
-          'Набій 14,5х114 мм (ЗПУ, КПВТ) Б-32',
-          'Набій 14,5х114 мм (ЗПУ, КПВТ) БЗТ', 
-          'Набій 14,5х114 мм (ЗПУ, КПВТ) МДЗ',
-          'Набій 12,7х108 мм (ДШК, НСВ, Корд, W85) МДЗ',
-          'Набій 12,7х108 мм (ДШК, НСВ, Корд, W85) БЗТ', 
-          'Набій 12,7х108 мм (ДШК, НСВ, Корд, W85) Б-32',
-          'Набій 12,7х108 мм (ДШК, НСВ, Корд, W85) 1СЛ',
-          'Набій 12,7х108 мм FMJ',
-          'Набій 12,7х99 мм (Canik, Browning)',
-          'Набій NM140/NM160 (Дінго) 12.7',
-          'Набій 7,62х54 мм (ПКМ, КМ-7,62, СВД) ЛПС', 
-          'Набій 7,62х54 мм (ПКМ, КМ-7,62, СВД) Т-46',
-          'Набій 7,62х54 мм (ПКМ, КМ-7,62, СВД) Б-32',
-          'Набій 7,62х54 мм (ПКМ, КМ-7,62, СВД) ПЗ',
-          'Набій 7,62х54 мм FMJ',
-          'Набій 7,62х51 мм (CZ TSR, MG3, MG42, FN MAG) М-80, М-62',
-          'Набій 7,62х39 мм (РКК, РКД, АКМ) ПС', 
-          'Набій 7,62х39 мм (РКК, РКД, АКМ) Т-45',
-          'Набій 5,56х45 мм (FNC) SS109', 
-          'Набій 5,45х39 мм ПС', 
-          'Набій 5,45х39 мм Т'
-        ],
-
-        results: ['не застосовувалась', 'не знищено', 'ЗНИЩЕНО', 'вибух'],
-
-        detectionModes: [
-          { value: 'акустично',    label: '🔊 акустично' },
-          { value: 'візуально',    label: '👁 візуально' },
-          { value: 'Візуально та акустично не виявлено', label: '🚫 не виявлено' },
-        ],
-
-        actions: ['обстріляно', 'знищено'],
-
-        uavTypes: ['Shahed', 'Shahed (реактивний)', 'Гербера', 'Пародія', 'Невідомий'],
-
-        detectionTargets: [
-          'FPV-дрон',
-          'БпЛА типу Гербера',
-          'БпЛА типу Зала',
-          'БпЛА типу Молнія',
-          'БпЛА типу Невизначений',
-          'БпЛА типу Орлан',
-          'БпЛА типу реактивний Шахед',
-          'БпЛА типу Суперкам',
-          'БпЛА типу ШАХЕД',
-          'Виходи',
-          'Гелікоптер',
-          'Зонд',
-          'Квадрокоптер',
-          'Крилата Ракета',
-          'Літак великий',
-          'Літак малий',
-          'Робота суміжних підрозділів'
-        ],
-          
-        ranks: ['солд.', 'ст. солд.', 'матрос', 'ст.матрос', 'мол. с-нт', 'с-нт', 'ст. с-нт', 'гол. с-нт', 'шт. с-нт', 'м. с-нт', 'мол. л-т', 'л-т', 'ст. л-т', 'к-н', 'м-р', 'п.п-к', 'п-к']
-      },
-
-      computed: {
-        showSviyButton() {
-          const sviyTargets = [
-            'FPV-дрон',
-            'БпЛА типу Невизначений',
-            'Виходи',
-            'Гелікоптер',
-            'Зонд',
-            'Квадрокоптер',
-            'Літак великий',
-            'Літак малий'
-          ];
-          return sviyTargets.includes(this.formData.detectionTarget);
-        },
-        canShare() {
-          return typeof navigator.share === 'function';
-        },
-        formProgress() {
-          let filled = 0, total = 6;
-          if (this.formData.pidrozdil) filled++;
-          if (this.formData.pozivniy) filled++;
-          if (this.formData.naseleniyPunkt) filled++;
-          if (this.formData.datetime) filled++;
-          if (this.formData.weapons.some(w => w.name)) filled++;
-          if (this.formData.result) filled++;
-          return Math.round((filled / total) * 100);
-        },
-        isViktor() {
-          return this.formData.weapons.some(w => w.name === 'із ЗКУ Viktor MR-2 14.5');
-        },
-        isRifle545() {
-          return this.formData.weapons.some(w => w.name === 'зі стрілецької зброї 5.45');
-        },
-        isDshk() {
-          return this.formData.weapons.some(w => w.name === 'із ВКК ДШК 12.7');
-        },
-        showViktorAmmo() {
-          return this.isViktor && (this.formData.result === 'не знищено' || this.formData.result === 'ЗНИЩЕНО');
-        },
-        showAk74() {
-          return this.isRifle545 && (this.formData.result === 'не знищено' || this.formData.result === 'ЗНИЩЕНО');
-        },
-        showDshk() {
-          return this.isDshk && (this.formData.result === 'не знищено' || this.formData.result === 'ЗНИЩЕНО');
-        },
-        hasOtherWeapons() {
-          // Зброя окрім спеціальних блоків
-          return this.formData.weapons.some(w =>
-            w.name &&
-            w.name !== 'із ЗКУ Viktor MR-2 14.5' &&
-            w.name !== 'зі стрілецької зброї 5.45' &&
-            w.name !== 'із ВКК ДШК 12.7'
-          );
-        },
-        showRozxid() {
-          const resultOk = this.formData.result !== 'не застосовувалась' &&
-            this.formData.result !== 'вибух' &&
-            this.formData.result !== '';
-          if (!resultOk) return false;
-          const hasSpecial = this.showViktorAmmo || this.showAk74 || this.showDshk;
-          return !hasSpecial || this.hasOtherWeapons;
-        }
-      },
-
-      created() {
-        // Відновлення теми
-        const savedTheme = localStorage.getItem('darkMode');
-        if (savedTheme === '1') {
-          this.darkMode = true;
-          document.body.classList.add('dark');
-        }
-
-        // Автопідстановка UTC дати і часу
-        const now = new Date();
-        const pad = n => String(n).padStart(2, '0');
-        this.formData.date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-        this.formData.time = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-        this.formData.datetime = this._buildDatetime(this.formData.date, this.formData.time);
-
-        // Відновлюємо лише постійні поля
-        const saved = localStorage.getItem('staticFormData');
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            const staticKeys = ['pidrozdil', 'pozivniyPrefix', 'pozivniy', 'naseleniyPunkt', 'oblast', 'weapons', 'personnel', 'rozxidTypes'];
-            staticKeys.forEach(key => {
-              if (parsed[key] !== undefined) {
-                this.formData[key] = parsed[key];
-              }
-            });
-            // Сумісність зі старим форматом (weapons як рядок)
-            if (!Array.isArray(this.formData.weapons)) {
-              const oldWeapon = this.formData.zbroya || '';
-              this.formData.weapons = [{ name: oldWeapon }];
-            }
-            // Відновлення типів набоїв (без кількості)
-            if (Array.isArray(parsed.rozxidTypes) && parsed.rozxidTypes.length > 0) {
-              this.formData.rozxid = parsed.rozxidTypes.map(t => ({ type: t, quantity: null }));
-            }
-          } catch (e) {
-            console.warn('Не вдалося відновити дані з localStorage:', e);
-          }
-        }
-      },
-
-      watch: {
-        // Зберігаємо лише постійні поля при будь-якій зміні
-        'formData.pidrozdil'(v)       { this._saveStatic(); },
-        'formData.pozivniyPrefix'(v)  { this._saveStatic(); },
-        'formData.pozivniy'(v)        { this._saveStatic(); },
-        'formData.naseleniyPunkt'(v)  { this._saveStatic(); },
-        'formData.oblast'(v)          { this._saveStatic(); },
-        'formData.weapons': {
-          handler() { this._saveStatic(); },
-          deep: true
-        },
-        'formData.personnel': {
-          handler() { this._saveStatic(); },
-          deep: true
-        },
-        'formData.targetClass'(newVal) {
-          if (newVal === 'КР') {
-            this.formData.type = '';
-          } else if (newVal === 'БПЛА' && !this.formData.type) {
-            this.formData.type = this.uavTypes[0];
-          }
-        },
-
-        'formData.rozxid': {
-          handler() { this._saveStatic(); },
-          deep: true
-        },
-
-        'formData.result'(newVal) {
-          if (newVal === 'вибух') {
-            this.formData.height = '';
-            this.formData.krok = '';
-          }
-        }
-      },
-
-      methods: {
-        // Будує рядок "дд.мм.рррр гг:хх" з внутрішніх полів date/time
-        _buildDatetime(dateStr, timeStr) {
-          if (!dateStr) return '';
-          const [yyyy, mm, dd] = dateStr.split('-');
-          return `${dd}.${mm}.${yyyy} ${timeStr || '00:00'}`;
-        },
-
-        // Розбирає рядок "дд.мм.рррр гг:хх" назад у date/time
-        parseDatetime() {
-          const val = (this.formData.datetime || '').trim();
-          if (!val) { this.datetimeError = ''; return; }
-
-          const m = val.match(/^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})$/);
-          if (!m) {
-            this.datetimeError = 'Формат: дд.мм.рррр гг:хх';
-            return;
-          }
-
-          const dd = +m[1], mm = +m[2], yyyy = +m[3], hh = +m[4], min = +m[5];
-
-          if (mm < 1 || mm > 12) { this.datetimeError = 'Місяць: 01–12'; return; }
-          if (dd < 1 || dd > 31) { this.datetimeError = 'День: 01–31'; return; }
-          if (hh > 23)           { this.datetimeError = 'Година: 00–23'; return; }
-          if (min > 59)          { this.datetimeError = 'Хвилини: 00–59'; return; }
-
-          // Перевірка реальної дати (лютий, місяці з 30 днів тощо)
-          const date = new Date(yyyy, mm - 1, dd);
-          if (date.getFullYear() !== yyyy || date.getMonth() !== mm - 1 || date.getDate() !== dd) {
-            this.datetimeError = `Дата ${dd}.${m[2]}.${yyyy} не існує`;
-            return;
-          }
-
-          this.datetimeError = '';
-          this.formData.date = `${yyyy}-${m[2]}-${m[1]}`;
-          this.formData.time = `${m[4]}:${m[5]}`;
-        },
-
-        // Зміщує час на ±delta хвилин
-        adjustTime(delta) {
-          this.parseDatetime();
-          const [yyyy, mm, dd] = (this.formData.date || '').split('-').map(Number);
-          const [hh, min] = (this.formData.time || '00:00').split(':').map(Number);
-          if (!yyyy) return;
-          const d = new Date(yyyy, mm - 1, dd, hh, min + delta);
-          const pad = n => String(n).padStart(2, '0');
-          this.formData.date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-          this.formData.time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-          this.formData.datetime = this._buildDatetime(this.formData.date, this.formData.time);
-        },
-
-        toggleTheme() {
-          this.darkMode = !this.darkMode;
-          document.body.classList.toggle('dark', this.darkMode);
-          localStorage.setItem('darkMode', this.darkMode ? '1' : '0');
-        },
-
-        getDetectionStyle(value) {
-          const selected = this.formData.detectionMode === value;
-          return {
-            background: selected ? '#0c4a6e' : '#0369a1',
-            color: '#ffffff',
-            border: selected ? '3px solid #082f49' : '3px solid transparent',
-            opacity: selected ? 1 : 0.75,
-            transform: selected ? 'scale(1.02)' : 'scale(1)',
-          };
-        },
-
-        getResultStyle(result) {
-          const selected = this.formData.result === result;
-          const colors = {
-            'не застосовувалась': { bg: '#475569', active: '#1e293b' },
-            'не знищено':         { bg: '#92400e', active: '#78350f' },
-            'ЗНИЩЕНО':            { bg: '#15803d', active: '#14532d' },
-            'вибух':              { bg: '#b91c1c', active: '#991b1b' },
-          };
-          const c = colors[result] || { bg: '#475569', active: '#1e293b' };
-          return {
-            background: selected ? c.active : c.bg,
-            color: '#ffffff',
-            border: selected ? '3px solid #0f172a' : '3px solid transparent',
-            opacity: selected ? 1 : 0.75,
-            transform: selected ? 'scale(1.03)' : 'scale(1)',
-          };
-        },
-
-        _saveStatic() {
-          const staticData = {
-            pidrozdil:      this.formData.pidrozdil,
-            pozivniyPrefix: this.formData.pozivniyPrefix,
-            pozivniy:       this.formData.pozivniy,
-            naseleniyPunkt: this.formData.naseleniyPunkt,
-            oblast:         this.formData.oblast,
-            weapons:        this.formData.weapons,
-            personnel:      this.formData.personnel,
-            rozxidTypes:    this.formData.rozxid.map(r => r.type || ''),
-          };
-          localStorage.setItem('staticFormData', JSON.stringify(staticData));
-        },
-
-        addRozxid() {
-          this.formData.rozxid.push({ type: '', quantity: null });
-        },
-
-        removeRozxid(index) {
-          this.formData.rozxid.splice(index, 1);
-        },
-
-        addPersonnel() {
-          this.formData.personnel.push({ rank: '', pib: '', onBch: false });
-        },
-
-        removePersonnel(index) {
-          if (this.formData.personnel.length > 1) {
-            this.formData.personnel.splice(index, 1);
-          }
-        },
-
-        addWeapon() {
-          this.formData.weapons.push({ name: '' });
-        },
-
-        removeWeapon(index) {
-          if (this.formData.weapons.length > 1) {
-            this.formData.weapons.splice(index, 1);
-          }
-        },
-
-        clearForm() {
-          const _now = new Date();
-          const _pad = n => String(n).padStart(2, '0');
-          const _utcDate = `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`;
-          const _utcTime = `${_pad(_now.getHours())}:${_pad(_now.getMinutes())}`;
-          this.formData = {
-            pidrozdil: '',
-            pozivniyPrefix: '',
-            pozivniy: '',
-            naseleniyPunkt: '',
-            oblast: '',
-            weapons: [{ name: '' }],
-            personnel: [{ rank: '', pib: '', onBch: false }],
-            date: _utcDate,
-            time: _utcTime,
-            datetime: this._buildDatetime(_utcDate, _utcTime),
-            targetNumber: '',
-            height: '',
-            result: '',
-            angle: '',
-            krok: '',
-            distance: '',
-            action: '',
-            targetCount: '',
-            targetClass: '',
-            type: '',
-            detectionMode: '',
-            detectionTarget: '',
-            isSviy: false,
-            rozxid: [{ type: '', quantity: null }],
-            viktorAmmo1: '',
-            viktorAmmo2: '',
-            viktorAmmo3: '',
-            ak74Ammo: '',
-            explosionCount: '',
-            explosionPlace: '',
-            explosionStatus: '',
-            comment: ''
-          };
-          localStorage.removeItem('staticFormData');
-        },
-
-        buildText() {
-          // Синхронізуємо datetime -> date/time перед копіюванням
-          this.parseDatetime();
-          if (this.datetimeError) {
-            // Трясти кнопку і підсвітити поле
-            this.$el.querySelector('.btn-copy').classList.remove('btn-shake');
-            void this.$el.querySelector('.btn-copy').offsetWidth; // reflow
-            this.$el.querySelector('.btn-copy').classList.add('btn-shake');
-            setTimeout(() => {
-              const btn = this.$el.querySelector('.btn-copy');
-              if (btn) btn.classList.remove('btn-shake');
-            }, 500);
-            return;
-          }
-          // Локальні змінні для відображення — не змінюємо formData
-          const angle    = (this.formData.angle    !== '' && this.formData.angle    !== null && this.formData.angle    !== undefined) ? String(this.formData.angle)    : '0';
-          const distance = (this.formData.distance !== '' && this.formData.distance !== null && this.formData.distance !== undefined) ? String(this.formData.distance) : '0';
-          const krok     = (this.formData.krok     !== '' && this.formData.krok     !== null && this.formData.krok     !== undefined) ? String(this.formData.krok)     : '0';
-          let   height   = (this.formData.height   !== '' && this.formData.height   !== null && this.formData.height   !== undefined) ? String(this.formData.height)   : '0';
-          const targetNumberRaw = this.formData.targetNumber || '0000';
-
-          if (this.formData.result === 'вибух' && this.formData.explosionPlace === 'на землі') {
-            height = '0';
-          }
-
-          const formatDate = (dateStr) => {
-            if (!dateStr) return '';
-            const parts = dateStr.split('-');
-            if (parts.length !== 3) return dateStr;
-            const [yyyy, mm, dd] = parts;
-            return `${dd}.${mm}.${yyyy}`;
-          };
-
-          const formattedDate = formatDate(this.formData.date);
-
-          let targetNumberDisplay = targetNumberRaw;
-          if (!targetNumberDisplay || /^0+$/.test(targetNumberDisplay)) {
-            targetNumberDisplay = 'б/н';
-          }
-
-          let resultText = this.formData.result || '';
-          let oblastShort = this.formData.oblast || '';
-
-          const weaponsSelected = (this.formData.weapons || [])
-            .map(w => w && w.name ? w.name : '')
-            .filter(Boolean);
-          const weaponsLine = weaponsSelected.join(', ');
-
-          const ammoSummary = (items) => {
-            const regexNabiy = /^(Набій|Снаряд)\s(.+)$/;
-            const grouped = {};
-            let zkr = 0;
-            let nbzh = 0;
-
-            items.forEach(item => {
-              const line = item.type;
-              const qty = parseInt(item.quantity, 10);
-              if (!line || isNaN(qty)) return;
-
-              if (line.startsWith('Розхід ЗКР')) {
-                zkr += qty;
-              } else if (line.startsWith('Розхід НБЖ')) {
-                nbzh += qty;
-              } else {
-                const match = line.match(regexNabiy);
-                if (match) {
-                  const kind = match[1];
-                  const name = match[2];
-                  const key = `${kind} ${name}`;
-                  if (!grouped[key]) grouped[key] = 0;
-                  grouped[key] += qty;
-                }
-              }
-            });
-
-            const lines = [];
-            Object.entries(grouped).forEach(([key, qty]) => {
-              lines.push(`${key} - ${qty}`);
-            });
-            if (zkr > 0) lines.push(`Розхід ЗКР - ${zkr}`);
-            if (nbzh > 0) lines.push(`Розхід НБЖ - ${nbzh}`);
-            return lines;
-          };
-
-          let text = `Дата: ${formattedDate}
-Час: ${this.formData.time || ''}
-№ цілі: ${targetNumberDisplay}
-Результат: ${resultText}
-Н.П.: ${this.formData.naseleniyPunkt}
-Обл.: ${oblastShort}
-Підрозділ: ${this.formData.pidrozdil}
-Позивний: ${this.formData.pozivniyPrefix} ${this.formData.pozivniy}
-Зброя: ${weaponsLine}
-Висота: ${height}`;
-
-          if (this.formData.result === 'вибух') {
-            const vibukhWord = Number(this.formData.explosionCount) > 1 ? 'вибухи' : 'вибух';
-            text += `\nОпис: А-${angle}, Д-${distance} ${vibukhWord} ${this.formData.explosionCount} ${this.formData.explosionPlace} ${this.formData.explosionStatus}`;
-          } else if (this.formData.result === 'не застосовувалась') {
-            text += `\nОпис: А-${angle}, Д-${distance}, К-${krok}`;
-            if (this.formData.detectionMode) text += `, ${this.formData.detectionMode}`;
-            if (this.formData.targetCount) text += ` ${this.formData.targetCount}`;
-            if (this.formData.detectionTarget) text += ` ${this.formData.detectionTarget}`;
-          } else {
-            text += `\nОпис: А-${angle}, Д-${distance}, К-${krok}`;
-            if (this.formData.result === 'не знищено') {
-              text += `, обстріляно`;
-            } else if (this.formData.result === 'ЗНИЩЕНО') {
-              text += `, ЗНИЩЕНО`;
-            } else if (this.formData.action) {
-              text += `, ${this.formData.action}`;
-            }
-            if (this.formData.targetCount) text += ` ${this.formData.targetCount}`;
-            if (this.formData.targetClass) text += ` ${this.formData.targetClass}`;
-            if (this.formData.targetClass === 'БПЛА' && this.formData.type) {
-              text += ` ${this.formData.type}`;
-            }
-          }
-
-          const personnel = this.formData.personnel
-            .filter(p => p.rank && p.pib && p.onBch)
-            .map(p => `${p.rank} ${p.pib}`)
-            .join(', ');
-          if (personnel) text += `, ${personnel}`;
-
-          const commentText = this.formData.comment && this.formData.comment.trim()
-            ? this.formData.comment.trim()
-            : '-';
-          const sviyText = this.formData.isSviy ? 'Свій ' : '';
-          text += `\nКоментар: ${sviyText}${commentText}`;
-
-          if (this.showRozxid) {
-            const ammoLines = ammoSummary(this.formData.rozxid);
-            ammoLines.forEach(line => {
-              text += `\n${line}`;
-            });
-          }
-
-          // Viktor MR-2 розрахунок БК
-          if (this.showViktorAmmo) {
-            let total = 0, bzt = 0, mdz = 0, b32 = 0;
-
-            const a1 = Number(this.formData.viktorAmmo1);
-            if (a1 > 0) {
-              total += a1;
-              const b = Math.round(a1 / 4);
-              bzt += b; mdz += a1 - b;
-            }
-
-            const a2 = Number(this.formData.viktorAmmo2);
-            if (a2 > 0) {
-              total += a2;
-              const b = Math.round(a2 / 3);
-              bzt += b; mdz += a2 - b;
-            }
-
-            const a3 = Number(this.formData.viktorAmmo3);
-            if (a3 > 0) {
-              total += a3;
-              const full = Math.floor(a3 / 4);
-              const rem = a3 % 4;
-              let b3 = full, b32_3 = full, m3 = full * 2;
-              if (rem >= 1) b3 += 1;
-              if (rem >= 2) b32_3 += 1;
-              if (rem === 3) m3 += 1;
-              bzt += b3; b32 += b32_3; mdz += m3;
-            }
-
-            if (total > 0) {
-              text += `\nНабій 14,5х114 мм (ЗПУ, КПВТ) БЗТ - ${bzt}\nНабій 14,5х114 мм (ЗПУ, КПВТ) МДЗ - ${mdz}\nНабій 14,5х114 мм (ЗПУ, КПВТ) Б-32 - ${b32}`;
-            }
-          }
-
-          // AK74 розрахунок БК
-          if (this.showAk74) {
-            const amt = Number(this.formData.ak74Ammo);
-            if (amt > 0) {
-              const tz = Math.round(amt / 3);
-              const ps = amt - tz;
-              text += `\nНабій 5,45х39 мм ТЗ - ${tz}\nНабій 5,45х39 мм ПС - ${ps}`;
-            }
-            // Додатковий розхід БК
-            this.formData.ak74ExtraRozxid.forEach(item => {
-              if (item.type && Number(item.quantity) > 0) {
-                text += `\n${item.type} - ${item.quantity}`;
-              }
-            });
-          }
-
-          // ДШК розрахунок БК (стрічка 1БЗТ-3Б32)
-          if (this.showDshk) {
-            const amt = Number(this.formData.dshkAmmo);
-            if (amt > 0) {
-              const bzt = Math.round(amt / 4);
-              const b32 = amt - bzt;
-              text += `\nНабій 12,7х108 мм (ДШК, НСВ, Корд, W85) БЗТ - ${bzt}\nНабій 12,7х108 мм (ДШК, НСВ, Корд, W85) Б-32 - ${b32}`;
-            }
-            this.formData.dshkExtraRozxid.forEach(item => {
-              if (item.type && Number(item.quantity) > 0) {
-                text += `\n${item.type} - ${item.quantity}`;
-              }
-            });
-          }
-
-          text = text
-            .split('\n')
-            .map(line => line.trimStart())
-            .join('\n');
-
-          return text;
-        },
-
-        buildSmsText() {
-          this.parseDatetime();
-          if (this.datetimeError) return null;
-
-          const formatDate = (dateStr) => {
-            if (!dateStr) return '';
-            const parts = dateStr.split('-');
-            if (parts.length !== 3) return dateStr;
-            const [yyyy, mm, dd] = parts;
-            return `${dd}.${mm}.${yyyy}`;
-          };
-
-          const formattedDate = formatDate(this.formData.date);
-          const targetNumberRaw = this.formData.targetNumber || '0000';
-          let targetNumberDisplay = targetNumberRaw;
-          if (!targetNumberDisplay || /^0+$/.test(targetNumberDisplay)) {
-            targetNumberDisplay = 'б/н';
-          }
-
-          const angle    = (this.formData.angle    !== '' && this.formData.angle    !== null && this.formData.angle    !== undefined) ? String(this.formData.angle)    : null;
-          const distance = (this.formData.distance !== '' && this.formData.distance !== null && this.formData.distance !== undefined) ? String(this.formData.distance) : null;
-          const krok     = (this.formData.krok     !== '' && this.formData.krok     !== null && this.formData.krok     !== undefined) ? String(this.formData.krok)     : null;
-          const height   = (this.formData.height   !== '' && this.formData.height   !== null && this.formData.height   !== undefined) ? String(this.formData.height)   : null;
-
-          let sms = `${formattedDate} час ${this.formData.time || ''} ${this.formData.pozivniyPrefix} ${this.formData.pozivniy} р-н н.п. ${this.formData.naseleniyPunkt} № цілі: ${targetNumberDisplay}`;
-
-          if (angle)    sms += ` А-${angle}`;
-          if (krok)     sms += ` К-${krok}`;
-          if (distance) sms += ` Д-${distance}`;
-          if (height)   sms += ` H-${height}`;
-
-          if (this.formData.detectionMode)   sms += `, ${this.formData.detectionMode}`;
-          if (this.formData.targetCount)     sms += ` ${this.formData.targetCount}`;
-          if (this.formData.detectionTarget) sms += ` ${this.formData.detectionTarget}`;
-
-          const sviyText = this.formData.isSviy ? 'Свій ' : '';
-          const commentText = this.formData.comment && this.formData.comment.trim()
-            ? this.formData.comment.trim()
-            : '';
-          if (sviyText || commentText) {
-            sms += ` ${sviyText}${commentText}`;
-          }
-
-          return sms.trim();
-        },
-
-        getOutputText() {
-          if (this.formData.result === 'не застосовувалась') {
-            return this.buildSmsText();
-          }
-          return this.buildText();
-        },
-
-        reloadPage() {
-          window.location.reload();
-        },
-
-        copyData() {
-          this.parseDatetime();
-          if (this.datetimeError) {
-            this.$el.querySelector('.btn-copy').classList.remove('btn-shake');
-            void this.$el.querySelector('.btn-copy').offsetWidth;
-            this.$el.querySelector('.btn-copy').classList.add('btn-shake');
-            setTimeout(() => {
-              const btn = this.$el.querySelector('.btn-copy');
-              if (btn) btn.classList.remove('btn-shake');
-            }, 600);
-            return;
-          }
-          const text = this.getOutputText();
-          if (!text) return;
-          navigator.clipboard.writeText(text).then(() => {
-            this.copySuccess = true;
-            setTimeout(() => { this.copySuccess = false; }, 2000);
-          });
-        },
-
-        shareData() {
-          this.parseDatetime();
-          if (this.datetimeError) return;
-          const text = this.getOutputText();
-          if (!text) return;
-          if (typeof navigator.share === 'function') {
-            navigator.share({ text }).catch(() => {});
-          } else {
-            navigator.clipboard.writeText(text).then(() => {
-              this.copySuccess = true;
-              setTimeout(() => { this.copySuccess = false; }, 2000);
-            });
-          }
-        },
-
-        onAngleInput(e) {
-          let val = parseInt(e.target.value, 10);
-          if (isNaN(val) || val < 0) val = 0;
-          if (val > 360) val = 360;
-          this.formData.angle = val;
-          e.target.value = val;
-        },
-
-        onKrokInput(e) {
-          let val = parseInt(e.target.value, 10);
-          if (isNaN(val) || val < 0) val = 0;
-          if (val > 360) val = 360;
-          this.formData.krok = val;
-          e.target.value = val;
-        }
+  <div id="tplList"></div>
+</section>
+<section id="sigLib">
+  <h2>Довідник підписів</h2>
+  <div class="tools">
+    <button id="sigNew" type="button">Новий підпис</button>
+    <button id="sigExp" type="button">Експорт підписів</button>
+    <button id="sigImp" type="button">Імпорт підписів</button>
+    <input type="file" id="sigImpFile" accept=".json,application/json" hidden>
+  </div>
+  <div id="sigList"></div>
+</section>
+<dialog id="sigDlg">
+  <h2>Новий підпис</h2>
+  <p class="hint">Розпишіться пальцем, стилусом чи мишкою. Нижня лінія лише для орієнтира, у підпис вона не потрапить.</p>
+  <canvas id="sigCanvas"></canvas>
+  <div class="tools">
+    <button id="sigUndo" type="button">Скасувати штрих</button>
+    <button id="sigClear" type="button">Очистити</button>
+    <select id="sigColor" aria-label="Колір"><option value="#0b2a8a">Синій</option><option value="#111111">Чорний</option></select>
+  </div>
+  <input id="sigName" placeholder="Назва підпису, наприклад: Командир">
+  <p id="sigMsg" role="alert"></p>
+  <div class="tools"><button id="sigSave" class="pri" type="button">Зберегти в довідник</button><button id="sigCancel" type="button">Закрити</button></div>
+</dialog>
+<div id="work">
+<section id="s2" hidden>
+  <h2><i class="step">2</i>Поля у зразку</h2>
+  <p class="hint">Жовтим підсвічено поля, зеленим змінені, блакитним копії. Виділіть текст: «Позначити як поле» додає поле, «Копіювати» дублює абзаци чи фразу в обране місце.</p>
+  <div class="tools"><button id="undo" type="button" hidden>Скасувати правку</button><button id="zoomOut" type="button" aria-label="Зменшити сторінку">−</button><button id="zoomIn" type="button" aria-label="Збільшити сторінку">+</button></div>
+  <div id="viewer"></div>
+</section>
+<section id="s3" hidden>
+  <h2><i class="step">3</i>Нові дані</h2>
+  <p class="hint">Перейменуйте поле, введіть нове значення або приберіть зайве поле.</p>
+  <div id="form"></div>
+  <div class="save"><input id="tplName" placeholder="Назва шаблону"><button id="save" type="button">Зберегти шаблон</button></div>
+  <button id="gen" class="pri" type="button">Створити документ</button>
+</section>
+</div>
+<div id="docxStyles"></div>
+<div id="fab" hidden><button id="fabField" type="button">Позначити як поле</button><button id="fabCopy" type="button">Копіювати</button></div>
+<div id="dropMark" hidden></div>
+<div id="pasteMenu" hidden><button type="button" data-side="before">Вставити перед абзацом</button><button type="button" data-side="after">Вставити після абзацу</button></div>
+<div id="pasteBar" hidden><span id="pasteText"></span><button id="barUndo" type="button" disabled>Скасувати</button><button id="sigSmaller" type="button" hidden aria-label="Менший підпис">−</button><button id="sigBigger" type="button" hidden aria-label="Більший підпис">+</button><button id="pasteDone" type="button">Готово</button></div>
+</main>
+<script>
+"use strict";
+
+const W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const FIELD_PATTERNS = [
+  { label: "Дата", re: /(?<!\d)\d{1,2}\.\d{1,2}\.\d{2,4}(?!\d)/g },
+  { label: "Номер", re: /№\s?[\p{L}\d\/-]+/gu },
+  { label: "ПІБ", re: /(?<!\p{L})\p{Lu}\p{Ll}+\s+\p{Lu}\.\s?\p{Lu}\./gu },
+  { label: "ПІБ", re: /(?<!\p{L})\p{Lu}\.\s?\p{Lu}\.\s?\p{Lu}\p{Ll}+/gu },
+  { label: "Телефон", re: /\+?\d[\d\s()-]{8,}\d/g },
+];
+
+class DocxError extends Error {}
+
+/* ---------- core: field detection and replacement ---------- */
+
+/** Return unique field candidates [{original, label}] found in paragraph texts. */
+function detectFields(texts) {
+  const found = new Map();
+  for (const text of texts) {
+    for (const { label, re } of FIELD_PATTERNS) {
+      for (const m of text.matchAll(re)) {
+        const original = m[0].trim();
+        if (original && !found.has(original)) found.set(original, label);
       }
-    });
-  </script>
-
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/Ltava/sw.js', { scope: '/Ltava/' })
-          .then(reg => {
-            // Одразу перевіряємо оновлення
-            reg.update();
-            // Якщо знайдено новий SW — перезавантажуємо сторінку автоматично
-            reg.addEventListener('updatefound', () => {
-              const newSW = reg.installing;
-              newSW.addEventListener('statechange', () => {
-                if (newSW.state === 'activated') {
-                  window.location.reload();
-                }
-              });
-            });
-          })
-          .catch(e => console.warn('SW помилка:', e));
-
-        // Якщо інша вкладка вже активувала новий SW — також оновлюємось
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          window.location.reload();
-        });
-      });
     }
-  </script>
+  }
+  return [...found].map(([original, label]) => ({ original, label }));
+}
+
+/** Find non-overlapping occurrences; longer fields win so "12.05.2024" beats "12". */
+function findMatches(text, originals) {
+  const hits = [];
+  const sorted = [...originals].sort((a, b) => b.length - a.length);
+  for (const original of sorted) {
+    if (!original) continue; // an empty string would loop forever in indexOf
+    let i = text.indexOf(original);
+    while (i >= 0) {
+      const end = i + original.length;
+      if (!hits.some((h) => i < h.end && end > h.start)) hits.push({ start: i, end, original });
+      i = text.indexOf(original, end);
+    }
+  }
+  return hits.sort((a, b) => a.start - b.start);
+}
+
+/** Replace hits inside run texts; the first touched run keeps its formatting. */
+function replaceInRuns(runs, hits, values) {
+  const out = [...runs];
+  const offsets = [];
+  let pos = 0;
+  for (const t of runs) { offsets.push(pos); pos += t.length; }
+  // Reverse order keeps earlier offsets valid after later edits.
+  for (const hit of [...hits].reverse()) {
+    let first = true;
+    runs.forEach((t, k) => {
+      const s = offsets[k];
+      const e = s + t.length;
+      if (e <= hit.start || s >= hit.end) return;
+      const a = Math.max(hit.start, s) - s;
+      const b = Math.min(hit.end, e) - s;
+      out[k] = out[k].slice(0, a) + (first ? (values[hit.original] ?? hit.original) : "") + out[k].slice(b);
+      first = false;
+    });
+  }
+  return out;
+}
+
+/* ---------- infrastructure: docx read/write ---------- */
+
+const runText = (ts) => ts.map((t) => t.textContent).join("");
+
+function parseDocument(xmlText) {
+  const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+  if (xml.getElementsByTagName("parsererror").length) throw new DocxError("Пошкоджений вміст документа.");
+  const paragraphs = [...xml.getElementsByTagNameNS(W_NS, "p")].map((p) => ({
+    node: p,
+    runs: [...p.getElementsByTagNameNS(W_NS, "r")]
+      .map((r) => [...r.getElementsByTagNameNS(W_NS, "t")])
+      .filter((ts) => ts.length),
+  }));
+  return { xml, paragraphs };
+}
+
+function writeRun(ts, text) {
+  ts[0].textContent = text;
+  ts[0].setAttribute("xml:space", "preserve"); // otherwise Word trims edge spaces
+  ts.slice(1).forEach((t) => { t.textContent = ""; });
+}
+
+function fillDocument(paragraphs, originals, values) {
+  let count = 0;
+  for (const p of paragraphs) {
+    const runs = p.runs.map(runText);
+    const hits = findMatches(runs.join(""), originals);
+    if (!hits.length) continue;
+    replaceInRuns(runs, hits, values).forEach((t, k) => {
+      if (t !== runs[k]) writeRun(p.runs[k], t);
+    });
+    count += hits.length;
+  }
+  return count;
+}
+
+async function readDocx(file) {
+  if (typeof JSZip === "undefined") {
+    throw new DocxError("Бібліотека JSZip не завантажилась. Потрібен інтернет під час першого запуску.");
+  }
+  let zip;
+  try {
+    zip = await JSZip.loadAsync(await file.arrayBuffer());
+  } catch {
+    throw new DocxError("Файл не схожий на .docx.");
+  }
+  const entry = zip.file("word/document.xml");
+  if (!entry) throw new DocxError("У файлі немає тексту документа (word/document.xml).");
+  return { zip, xmlText: await entry.async("string") };
+}
+
+async function buildDocx(doc, fields, values) {
+  const { xml, paragraphs } = parseDocument(doc.xmlText); // fresh parse: each build starts from the sample
+  const count = fillDocument(paragraphs, fields.map((f) => f.original), values);
+  if (!count) throw new DocxError("У документі не знайдено жодного з полів.");
+  for (const t of xml.getElementsByTagNameNS(W_NS, "t")) {
+    if (t.textContent.includes(MARK)) t.textContent = t.textContent.replaceAll(MARK, ""); // no invisible leftovers in the output
+  }
+  doc.zip.file("word/document.xml", new XMLSerializer().serializeToString(xml));
+  return doc.zip.generateAsync({ type: "blob", mimeType: DOCX_MIME });
+}
+
+/* ---------- presentation ---------- */
+
+const $ = (id) => document.getElementById(id);
+const state = {
+  doc: null, bytes: null, name: "", templateId: null, texts: [], fields: [],
+  lastSelection: "", lastRange: null, pressing: false, viewerOk: false,
+  history: [], activeOrig: null, zoomMul: 1, clip: null, pasteMode: false, sign: null, sigScale: 1,
+};
+
+function say(text, isError = false) {
+  $("msg").textContent = text;
+  $("msg").className = isError ? "err" : "";
+}
+
+const hasViewer = () => typeof window.docx !== "undefined";
+
+/** Render the sample with page layout like Word; returns false so the caller can fall back. */
+async function renderViewer() {
+  const box = $("viewer");
+  box.className = "";
+  try {
+    await docx.renderAsync(state.bytes.slice(0), box, $("docxStyles"), {
+      inWrapper: true, ignoreLastRenderedPageBreak: true, useBase64URL: true,
+    });
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
+  fitPages();
+  return true;
+}
+
+function fitPages() {
+  const wrap = $("viewer").querySelector(".docx-wrapper");
+  const page = wrap?.querySelector("section.docx");
+  if (!page) return;
+  wrap.style.zoom = "1"; // measure at natural size first
+  wrap.style.zoom = String(Math.min(1, ($("viewer").clientWidth - 8) / page.offsetWidth) * state.zoomMul);
+}
+
+function wrapHit(nodes, offsets, hit) {
+  let first = true; // only the first piece of a split field shows the new value
+  nodes.forEach((node, k) => {
+    const start = offsets[k];
+    const end = start + node.length;
+    if (end <= hit.start || start >= hit.end) return;
+    const a = Math.max(hit.start, start) - start;
+    const b = Math.min(hit.end, end) - start;
+    const middle = node.splitText(a);
+    middle.splitText(b - a);
+    const mark = document.createElement("mark");
+    mark.className = hit.original.includes(MARK) ? "f c" : "f";
+    mark.dataset.orig = hit.original;
+    mark.dataset.first = first ? "1" : "0";
+    first = false;
+    middle.replaceWith(mark);
+    mark.append(middle);
+  });
+}
+
+function markParagraph(p, originals) {
+  const nodes = [];
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n);
+  const offsets = [];
+  let pos = 0;
+  for (const n of nodes) { offsets.push(pos); pos += n.length; }
+  const hits = findMatches(nodes.map((n) => n.data).join(""), originals);
+  // Reverse order keeps earlier offsets valid after node splitting.
+  for (const hit of hits.reverse()) wrapHit(nodes, offsets, hit);
+}
+
+function highlight() {
+  const root = $("viewer");
+  root.querySelectorAll("mark.f").forEach((m) => {
+    const parent = m.parentNode;
+    m.replaceWith(...m.childNodes);
+    parent.normalize();
+  });
+  const originals = state.fields.map((f) => f.original);
+  root.querySelectorAll("p").forEach((p) => markParagraph(p, originals));
+}
+
+/** Show the typed value in place of the field. The real text stays in the DOM, so selection and copy keep working. */
+function updatePreview() {
+  const values = new Map(state.fields.map((f) => [f.original, f.value]));
+  for (const mark of $("viewer").querySelectorAll("mark.f")) {
+    const value = values.get(mark.dataset.orig);
+    const changed = value !== undefined && value !== mark.dataset.orig.replaceAll(MARK, "");
+    if (changed && !mark.classList.contains("chg")) {
+      mark.style.setProperty("--fs", getComputedStyle(mark).fontSize); // read before the text is hidden
+    }
+    mark.classList.toggle("chg", changed);
+    mark.classList.toggle("act", mark.dataset.orig === state.activeOrig);
+    mark.dataset.val = mark.dataset.first === "1" ? (value ?? "") : "";
+  }
+}
+
+/** A short piece of the sentence with the new value in it, for checking on a small screen. */
+function contextOf(field) {
+  for (const text of state.texts) {
+    const i = text.indexOf(field.original);
+    if (i < 0) continue;
+    const tail = text.slice(i + field.original.length, i + field.original.length + 40);
+    return `…${text.slice(Math.max(0, i - 40), i)}${field.value}${tail}…`.replaceAll(MARK, "");
+  }
+  return "";
+}
+
+/** Put the field in the middle of the document pane. force=false only scrolls when the field is out of sight. */
+function scrollToField(field, force = true) {
+  const viewer = $("viewer");
+  const mark = [...viewer.querySelectorAll("mark.f")].find((m) => m.dataset.orig === field.original);
+  if (!mark) return;
+  const v = viewer.getBoundingClientRect();
+  const m = mark.getBoundingClientRect();
+  const inView = m.top >= v.top + 20 && m.bottom <= v.bottom - 20 && m.left >= v.left && m.right <= v.right;
+  if (!force && inView) return;
+  viewer.scrollTo({
+    top: viewer.scrollTop + (m.top - v.top) - (viewer.clientHeight - m.height) / 2,
+    left: viewer.scrollLeft + (m.left - v.left) - (viewer.clientWidth - m.width) / 2,
+    behavior: force ? "smooth" : "auto",
+  }); // inside the viewer only, the page itself does not move
+}
+
+function setActive(field) {
+  state.activeOrig = field.original;
+  updatePreview();
+}
+
+function renderFallback() {
+  const box = $("viewer");
+  box.className = "plain";
+  box.replaceChildren();
+  const originals = state.fields.map((f) => f.original);
+  for (const text of state.texts) {
+    if (!text.trim()) continue;
+    const p = document.createElement("p");
+    let pos = 0;
+    for (const h of findMatches(text, originals)) {
+      p.append(text.slice(pos, h.start));
+      const mark = document.createElement("mark");
+      mark.textContent = h.original;
+      mark.className = "f";
+      mark.dataset.orig = h.original;
+      mark.dataset.first = "1";
+      p.append(mark);
+      pos = h.end;
+    }
+    p.append(text.slice(pos));
+    box.append(p);
+  }
+}
+
+function makeInput(value, placeholder, onInput) {
+  const el = document.createElement("input");
+  el.value = value;
+  el.placeholder = placeholder;
+  el.oninput = () => onInput(el.value);
+  return el;
+}
+
+/** Order fields as they appear in the document (paragraph by paragraph, left to right).
+ *  A field that occurs several times is placed by its first occurrence; fields not found go last. */
+function sortFieldsByDocument() {
+  const originals = state.fields.map((f) => f.original);
+  const pos = new Map();
+  let rank = 0;
+  for (const text of state.texts) {
+    for (const hit of findMatches(text, originals)) {
+      if (!pos.has(hit.original)) pos.set(hit.original, rank++);
+    }
+  }
+  const order = (f) => pos.get(f.original) ?? Infinity;
+  state.fields = state.fields
+    .map((f, i) => ({ f, i }))
+    .sort((a, b) => (order(a.f) - order(b.f)) || (a.i - b.i)) // stable for ties and missing fields
+    .map(({ f }) => f);
+}
+
+function renderForm() {
+  sortFieldsByDocument();
+  const form = $("form");
+  form.replaceChildren();
+  state.fields.forEach((field, i) => {
+    const row = document.createElement("div");
+    row.className = "row";
+    const del = document.createElement("button");
+    del.textContent = "✕";
+    del.title = "Прибрати поле";
+    del.onclick = () => { state.fields.splice(i, 1); refresh(); };
+    const ctx = document.createElement("small");
+    ctx.className = "ctx";
+    ctx.textContent = contextOf(field);
+    row.addEventListener("focusin", () => { setActive(field); scrollToField(field); });
+    const note = document.createElement("small");
+    note.textContent = `У зразку: ${field.original.replaceAll(MARK, "")}`;
+    row.append(
+      makeInput(field.label, "Назва поля", (v) => { field.label = v; }),
+      makeInput(field.value, "Нове значення", (v) => { field.value = v; ctx.textContent = contextOf(field); updatePreview(); scrollToField(field, false); }),
+      del,
+      note,
+      ctx,
+    );
+    form.append(row);
+  });
+}
+
+async function refresh(rerender = false) {
+  if (rerender) state.viewerOk = hasViewer() && (await renderViewer());
+  if (state.viewerOk) highlight();
+  else renderFallback();
+  if (state.viewerOk) markSignatures();
+  updatePreview();
+  renderForm();
+  $("s3").hidden = state.fields.length === 0;
+}
+
+function download(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+function reportError(err) {
+  console.error(err);
+  say(err instanceof DocxError || err instanceof LibraryError ? err.message : "Сталася помилка. Спробуйте інший файл.", true);
+}
+
+$("file").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!/\.docx$/i.test(file.name)) {
+    say("Підтримується лише .docx. Файл .doc пересохраніть як .docx; PDF додамо наступним кроком.", true);
+    return;
+  }
+  try {
+    await openBytes(await file.arrayBuffer(), file.name.replace(/\.docx$/i, ""));
+  } catch (err) {
+    reportError(err);
+  }
+};
+
+const hideFab = () => { $("fab").hidden = true; };
+
+function placeFab() {
+  const fab = $("fab");
+  const rect = state.lastRange.getBoundingClientRect();
+  if (rect.bottom < 0 || rect.top > window.innerHeight) { hideFab(); return; }
+  fab.hidden = false;
+  const below = rect.bottom + 12 + fab.offsetHeight < window.innerHeight;
+  fab.style.top = `${below ? rect.bottom + 12 : Math.max(8, rect.top - fab.offsetHeight - 12)}px`;
+  fab.style.left = `${Math.min(Math.max(8, rect.left), window.innerWidth - fab.offsetWidth - 8)}px`;
+}
+
+// Tapping the button can collapse the selection on phones, so remember the last one.
+document.addEventListener("selectionchange", () => {
+  const sel = window.getSelection();
+  const text = sel.toString().trim();
+  if (text && sel.rangeCount && !state.pasteMode && $("viewer").contains(sel.anchorNode)) {
+    state.lastSelection = text;
+    state.lastRange = sel.getRangeAt(0).cloneRange();
+    placeFab();
+  } else if (!state.pressing) {
+    hideFab();
+  }
+});
+
+window.addEventListener("scroll", () => { if (!$("fab").hidden && state.lastRange) placeFab(); }, true);
+window.addEventListener("resize", () => { if (state.viewerOk) fitPages(); });
+const zoomBy = (f) => { state.zoomMul = Math.max(0.5, Math.min(3, state.zoomMul * f)); if (state.viewerOk) fitPages(); };
+$("zoomIn").onclick = () => zoomBy(1.25);
+$("zoomOut").onclick = () => zoomBy(0.8);
+
+function addField(text) {
+  if (!text || text.includes("\n")) { say("Виділіть фрагмент в межах одного абзацу.", true); return; }
+  if (state.fields.some((f) => f.original === text)) { say("Це поле вже додано.", true); return; }
+  if (!state.texts.some((t) => t.includes(text))) {
+    say("Фрагмент не збігається з текстом файлу (можливо, містить табуляцію). Виділіть коротше.", true);
+    return;
+  }
+  state.fields.push({ original: text, label: `Поле ${state.fields.length + 1}`, value: text });
+  refresh();
+  say(`Поле додано: ${text}`);
+}
+
+const fab = $("fab");
+fab.addEventListener("mousedown", (e) => e.preventDefault()); // keeps the selection on desktop
+fab.addEventListener("pointerdown", () => { state.pressing = true; });
+["pointerup", "pointercancel"].forEach((ev) =>
+  fab.addEventListener(ev, () => setTimeout(() => { state.pressing = false; }, 400)));
+$("fabField").onclick = () => {
+  state.pressing = false;
+  addField(state.lastSelection);
+  state.lastSelection = "";
+  hideFab();
+  window.getSelection().removeAllRanges();
+};
+
+$("gen").onclick = async () => {
+  const values = Object.fromEntries(state.fields.map((f) => [f.original, f.value]));
+  try {
+    await saveFile(await buildDocx(state.doc, state.fields, values), `${state.name}_новий.docx`);
+    say("Готово: файл збережено.");
+  } catch (err) {
+    reportError(err);
+  }
+};
+
+/* ---------- infrastructure: template library (IndexedDB) ---------- */
+
+function openDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("docgen", 2); // v2 adds the signatures store; templates stay untouched
+    req.onupgradeneeded = () => {
+      for (const store of ["templates", "signatures"]) {
+        if (!req.result.objectStoreNames.contains(store)) req.result.createObjectStore(store, { keyPath: "id" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function dbRun(mode, action, store = "templates") {
+  const db = await openDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(store, mode);
+    const req = action(tx.objectStore(store));
+    tx.oncomplete = () => resolve(req.result);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+const saveTemplate = (tpl) => dbRun("readwrite", (s) => s.put(tpl));
+const listTemplates = () => dbRun("readonly", (s) => s.getAll());
+const deleteTemplate = (id) => dbRun("readwrite", (s) => s.delete(id));
+const saveSignature = (sig) => dbRun("readwrite", (s) => s.put(sig), "signatures");
+const listSignatures = () => dbRun("readonly", (s) => s.getAll(), "signatures");
+const deleteSignature = (id) => dbRun("readwrite", (s) => s.delete(id), "signatures");
+
+/** Load a sample (fresh upload or saved template) and show it with its fields. */
+async function openBytes(bytes, name, savedFields = null, templateId = null) {
+  const doc = await readDocx(new Blob([bytes]));
+  Object.assign(state, { doc, bytes, name, templateId, history: [], clip: null, activeOrig: null });
+  exitPaste();
+  $("undo").hidden = true;
+  $("barUndo").disabled = true;
+  state.texts = parseDocument(doc.xmlText).paragraphs.map((p) => p.runs.map(runText).join(""));
+  const fields = savedFields ?? detectFields(state.texts);
+  state.fields = fields.map((f) => ({ original: f.original, label: f.label, value: f.original }));
+  $("tplName").value = name;
+  $("s2").hidden = false;
+  await refresh(true);
+  say(savedFields ? `Шаблон відкрито. Полів: ${state.fields.length}` : `Запропоновано полів: ${state.fields.length}`);
+}
+
+function templateRow(tpl) {
+  const row = document.createElement("div");
+  row.className = "tpl";
+  const open = document.createElement("button");
+  open.textContent = `${tpl.name} (полів: ${tpl.fields.length})`;
+  open.title = new Date(tpl.savedAt).toLocaleDateString("uk-UA");
+  open.onclick = async () => {
+    try {
+      await openBytes(tpl.bytes, tpl.name, tpl.fields, tpl.id);
+      $("s2").scrollIntoView({ behavior: "smooth" });
+    } catch (err) { reportError(err); }
+  };
+  const del = document.createElement("button");
+  del.textContent = "✕";
+  del.title = "Видалити шаблон";
+  del.onclick = async () => {
+    if (!confirm(`Видалити шаблон «${tpl.name}»?`)) return;
+    await deleteTemplate(tpl.id);
+    if (state.templateId === tpl.id) state.templateId = null;
+    renderLibrary();
+  };
+  row.append(open, del);
+  return row;
+}
+
+async function renderLibrary() {
+  let items;
+  try {
+    items = await listTemplates();
+  } catch (err) {
+    console.error(err);
+    $("lib").hidden = true; // storage blocked: the rest of the tool still works
+    return;
+  }
+  const query = $("q").value.trim().toLowerCase();
+  items = items.filter((t) => t.name.toLowerCase().includes(query)).sort((a, b) => b.savedAt - a.savedAt);
+  const box = $("tplList");
+  box.replaceChildren(...items.map(templateRow));
+  if (!items.length) box.textContent = "Збережених шаблонів немає.";
+}
+
+$("q").oninput = renderLibrary;
+
+$("save").onclick = async () => {
+  const name = $("tplName").value.trim();
+  if (!name) { say("Введіть назву шаблону.", true); return; }
+  // Copy edits change the document itself, so never overwrite a saved template silently.
+  const overwrite = state.templateId && (state.history.length === 0 || confirm("Документ змінено копіюванням. Перезаписати шаблон? «Скасувати» збереже як новий."));
+  const id = overwrite ? state.templateId : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const fields = state.fields.map(({ original, label }) => ({ original, label }));
+  try {
+    await saveTemplate({ id, name, savedAt: Date.now(), bytes: state.bytes, fields });
+    state.templateId = id;
+    state.name = name;
+    say(`Шаблон «${name}» збережено.`);
+    await renderLibrary();
+  } catch (err) {
+    reportError(err);
+  }
+};
+
+/* ---------- copy and paste inside the document ---------- */
+
+// Viewer and XML disagree on tabs and spaces, so positions are compared without whitespace.
+const normalize = (s) => s.replace(/\s+/g, "");
+const STRIP_ATTRS = new Set(["paraId", "textId"]);
+// Invisible separator appended to field text in a copy: it makes the copy's fields different strings,
+// so they can get their own values while the original keeps its own.
+const MARK = "\u2063";
+
+const nextCopy = () => 1 + Math.max(0, ...state.fields.map((f) => f.original.split(MARK).length - 1));
+
+/** Give every field occurrence in `runs` copy number `n`; returns new runs and the new fields. */
+function remark(runs, fields, n) {
+  const marker = MARK.repeat(n);
+  const hits = findMatches(runs.join(""), fields.map((f) => f.original));
+  const values = {};
+  const created = new Map();
+  for (const { original } of hits) {
+    const source = fields.find((f) => f.original === original);
+    const base = original.replaceAll(MARK, "");
+    values[original] = base + marker;
+    if (!created.has(base + marker)) {
+      const label = source.label.replace(/ \(копія \d+\)$/, "");
+      created.set(base + marker, { original: base + marker, label: `${label} (копія ${n})`, value: source.value });
+    }
+  }
+  return { runs: replaceInRuns(runs, hits, values), created: [...created.values()] };
+}
+
+function remarkClone(clone, n) {
+  const runs = [...clone.getElementsByTagNameNS(W_NS, "r")]
+    .map((r) => [...r.getElementsByTagNameNS(W_NS, "t")])
+    .filter((ts) => ts.length);
+  const before = runs.map(runText);
+  const { runs: after, created } = remark(before, state.fields, n);
+  after.forEach((t, k) => { if (t !== before[k]) writeRun(runs[k], t); });
+  return created;
+}
+let docPrCounter = 90000;
+
+const paragraphOf = (node) => (node?.nodeType === 1 ? node : node?.parentElement)?.closest("p") ?? null;
+
+/** Map each shown paragraph to its XML paragraph; prefix = list number or bullet drawn by the viewer. */
+function mapViewerParagraphs() {
+  const { paragraphs } = parseDocument(state.doc.xmlText);
+  const xmlTexts = paragraphs.map((p) => normalize(p.runs.map(runText).join("")));
+  const viewer = $("viewer");
+  const selector = viewer.querySelector("article") ? "article p" : "p"; // skips headers and footers
+  const map = new Map();
+  let from = 0;
+  for (const el of viewer.querySelectorAll(selector)) {
+    const shown = normalize(el.textContent);
+    if (!shown) { // blank line or cell: pair with the next XML paragraph only if that one is blank too
+      if (xmlTexts[from] === "") { map.set(el, { idx: from, prefix: 0 }); from += 1; }
+      continue;
+    }
+    const idx = xmlTexts.findIndex((t, i) => i >= from && t && shown.endsWith(t));
+    if (idx < 0) continue;
+    map.set(el, { idx, prefix: shown.length - xmlTexts[idx].length });
+    from = idx + 1;
+  }
+  return map;
+}
+
+/** Find the run and position after `offset` non-whitespace characters. */
+function locateOffset(runs, offset) {
+  let remaining = offset;
+  for (let k = 0; k < runs.length; k++) {
+    for (let pos = 0; pos <= runs[k].length; pos++) {
+      if (remaining === 0) return { k, pos };
+      if (pos < runs[k].length && !/\s/.test(runs[k][pos])) remaining--;
+    }
+  }
+  return { k: runs.length - 1, pos: runs[runs.length - 1].length };
+}
+
+const padInsert = (before, text, after) =>
+  `${before && !/\s$/.test(before) ? " " : ""}${text}${after && !/^[\s.,;:!?)»]/.test(after) ? " " : ""}`;
+
+function insertText(para, offset, text) {
+  if (!para.runs.length) throw new DocxError("У цьому абзаці немає тексту.");
+  const runs = para.runs.map(runText);
+  const { k, pos } = locateOffset(runs, offset);
+  const before = runs[k].slice(0, pos);
+  const after = runs[k].slice(pos);
+  writeRun(para.runs[k], before + padInsert(before, text, after) + after);
+}
+
+/** Drop ids that must stay unique in a Word file, so a copy never triggers "repair" on open. */
+function sanitizeClone(node) {
+  const strip = (el) => [...el.attributes].forEach((a) => { if (STRIP_ATTRS.has(a.localName)) el.removeAttributeNode(a); });
+  strip(node);
+  for (const el of [...node.getElementsByTagName("*")]) {
+    if (["bookmarkStart", "bookmarkEnd", "sectPr"].includes(el.localName)) el.remove();
+    else if (el.localName === "docPr") el.setAttribute("id", String(++docPrCounter));
+    else strip(el);
+  }
+}
+
+function pasteParagraphs(xml, paragraphs, targetIdx, side, clipXml, n) {
+  const target = paragraphs[targetIdx].node;
+  const anchor = side === "before" ? target : target.nextSibling;
+  const created = new Map();
+  for (const str of clipXml) {
+    const clone = xml.importNode(new DOMParser().parseFromString(str, "application/xml").documentElement, true);
+    sanitizeClone(clone);
+    remarkClone(clone, n).forEach((f) => created.set(f.original, f));
+    target.parentNode.insertBefore(clone, anchor);
+  }
+  return [...created.values()];
+}
+
+const topLevel = (nodes) => {
+  const set = new Set(nodes);
+  return nodes.filter((n) => { for (let a = n.parentNode; a; a = a.parentNode) if (set.has(a)) return false; return true; });
+};
+
+/** Apply an edit to the working document, keep the previous version for undo, and re-render. */
+async function editDocument(mutate) {
+  const { xml, paragraphs } = parseDocument(state.doc.xmlText);
+  const created = mutate(xml, paragraphs); // new fields for the copy, or a falsy value if nothing changed
+  if (!created) throw new DocxError("Не вдалося внести правку.");
+  state.doc.zip.file("word/document.xml", new XMLSerializer().serializeToString(xml));
+  const bytes = await state.doc.zip.generateAsync({ type: "arraybuffer" });
+  state.history.push({ bytes: state.bytes, fields: state.fields.map((f) => ({ ...f })) });
+  state.fields.push(...created);
+  await applyDocument(bytes);
+  return created;
+}
+
+async function applyDocument(bytes) {
+  const top = $("viewer").scrollTop;
+  state.doc = await readDocx(new Blob([bytes]));
+  state.bytes = bytes;
+  state.texts = parseDocument(state.doc.xmlText).paragraphs.map((p) => p.runs.map(runText).join(""));
+  await refresh(true);
+  $("viewer").scrollTop = top; // keep the reader where they were
+  $("undo").hidden = state.history.length === 0;
+  $("barUndo").disabled = state.history.length === 0;
+}
+
+async function runEdit(mutate, okMessage) {
+  try {
+    const created = await editDocument(mutate);
+    say(created.length ? `${okMessage} Поля копії (${created.length}) з’явились у формі: блакитні в документі.` : okMessage);
+  } catch (err) {
+    reportError(err);
+  }
+}
+
+function enterPaste() {
+  state.pasteMode = true;
+  hideFab();
+  $("pasteText").textContent = `Скопійовано ${state.clip.label}. Торкніться місця вставки в документі.`;
+  $("pasteBar").hidden = false;
+}
+
+function exitPaste() {
+  state.pasteMode = false;
+  state.sign = null;
+  $("sigSmaller").hidden = true;
+  $("sigBigger").hidden = true;
+  $("pasteBar").hidden = true;
+  $("pasteMenu").hidden = true;
+}
+
+function copySelection() {
+  const map = mapViewerParagraphs();
+  const first = map.get(paragraphOf(state.lastRange.startContainer));
+  const last = map.get(paragraphOf(state.lastRange.endContainer));
+  if (!first || !last) throw new DocxError("Виділіть текст в основній частині документа.");
+  const { paragraphs } = parseDocument(state.doc.xmlText);
+  const whole = normalize(paragraphs[first.idx].runs.map(runText).join(""));
+  const selected = normalize(state.lastSelection);
+  const isWhole = first.idx === last.idx && selected.endsWith(whole) && selected.length - whole.length <= first.prefix;
+  if (first.idx === last.idx && !isWhole) {
+    state.clip = { kind: "text", text: state.lastSelection, label: `фразу «${state.lastSelection.slice(0, 40)}»` };
+  } else {
+    const nodes = topLevel(paragraphs.slice(first.idx, last.idx + 1).map((p) => p.node));
+    if (nodes.length > 20) throw new DocxError("Забагато абзаців: виділіть до 20.");
+    const serializer = new XMLSerializer();
+    state.clip = { kind: "paras", xml: nodes.map((n) => serializer.serializeToString(n)), label: `абзаців: ${nodes.length}` };
+  }
+  enterPaste();
+}
+
+function caretAt(x, y) {
+  if (document.caretPositionFromPoint) {
+    const c = document.caretPositionFromPoint(x, y);
+    return c && { node: c.offsetNode, offset: c.offset };
+  }
+  const r = document.caretRangeFromPoint?.(x, y);
+  return r && { node: r.startContainer, offset: r.startOffset };
+}
+
+function showPasteMenu(e, idx) {
+  const menu = $("pasteMenu");
+  menu.hidden = false;
+  menu.dataset.idx = String(idx);
+  menu.style.top = `${Math.max(8, Math.min(e.clientY + 8, window.innerHeight - menu.offsetHeight - 8))}px`;
+  menu.style.left = `${Math.max(8, Math.min(e.clientX - 20, window.innerWidth - menu.offsetWidth - 8))}px`;
+}
+
+const PASTED = "Вставлено. Не туди? Натисніть «Скасувати» і торкніться іншого місця. Закінчили: «Готово».";
+
+$("viewer").addEventListener("click", (e) => {
+  if (state.justDragged) return;
+  $("pasteMenu").hidden = true;
+  if (!state.pasteMode) return;
+  const p = paragraphOf(e.target) ?? e.target.closest?.("td")?.querySelector("p");
+  const info = p && mapViewerParagraphs().get(p);
+  if (!info) { say("Торкніться рядка чи клітинки в основній частині документа.", true); return; }
+  if (state.sign) { signAt(e, p, info); return; }
+  if (state.clip.kind === "paras") { showPasteMenu(e, info.idx); return; }
+  const caret = caretAt(e.clientX, e.clientY);
+  if (!caret || !p.contains(caret.node)) { say("Не вдалося визначити місце. Торкніться ще раз.", true); return; }
+  const range = document.createRange();
+  range.selectNodeContents(p);
+  range.setEnd(caret.node, caret.offset);
+  const offset = Math.max(0, normalize(range.toString()).length - info.prefix);
+  const n = nextCopy();
+  const { runs: [text], created } = remark([state.clip.text], state.fields, n);
+  runEdit((xml, paragraphs) => { insertText(paragraphs[info.idx], offset, text); return created; }, PASTED);
+});
+
+document.querySelectorAll("#pasteMenu button").forEach((btn) => {
+  btn.onclick = () => {
+    const idx = Number($("pasteMenu").dataset.idx);
+    $("pasteMenu").hidden = true;
+    const n = nextCopy();
+    runEdit((xml, paragraphs) => pasteParagraphs(xml, paragraphs, idx, btn.dataset.side, state.clip.xml, n), PASTED);
+  };
+});
+
+$("fabCopy").onclick = () => {
+  state.pressing = false;
+  try {
+    copySelection();
+  } catch (err) {
+    reportError(err);
+  }
+  hideFab();
+  window.getSelection().removeAllRanges();
+};
+
+$("pasteDone").onclick = exitPaste;
+
+const undoEdit = async () => {
+  const entry = state.history.pop();
+  if (!entry) return;
+  try {
+    state.fields = entry.fields;
+    await applyDocument(entry.bytes);
+    say("Скасовано. Торкніться потрібного місця ще раз.");
+  } catch (err) {
+    reportError(err);
+  }
+};
+$("undo").onclick = undoEdit;
+$("barUndo").onclick = undoEdit;
+
+/* ---------- signatures: draw, store, insert ---------- */
+
+const EMU_PER_PX = 9525; // one css pixel at 96 dpi
+const PEN_WIDTH = 3;
+const pen = { strokes: [], current: null, ratio: 1 };
+const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+const viewerZoom = () => parseFloat($("viewer").querySelector(".docx-wrapper")?.style.zoom) || 1;
+
+function drawStroke(ctx, pts) {
+  ctx.beginPath();
+  if (pts.length === 1) { // a tap makes a dot
+    ctx.arc(pts[0].x, pts[0].y, PEN_WIDTH / 2, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length - 1; i++) {
+    ctx.quadraticCurveTo(pts[i].x, pts[i].y, (pts[i].x + pts[i + 1].x) / 2, (pts[i].y + pts[i + 1].y) / 2);
+  }
+  ctx.lineTo(pts.at(-1).x, pts.at(-1).y);
+  ctx.stroke();
+}
+
+function paintStrokes(ctx, transform) {
+  ctx.setTransform(...transform);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.lineWidth = PEN_WIDTH;
+  ctx.strokeStyle = $("sigColor").value;
+  ctx.fillStyle = $("sigColor").value;
+  pen.strokes.forEach((stroke) => drawStroke(ctx, stroke));
+}
+
+function redrawPad() {
+  const canvas = $("sigCanvas");
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  paintStrokes(ctx, [pen.ratio, 0, 0, pen.ratio, 0, 0]);
+}
+
+function sizePad() {
+  const canvas = $("sigCanvas");
+  pen.ratio = window.devicePixelRatio || 1;
+  canvas.width = Math.round(canvas.clientWidth * pen.ratio);
+  canvas.height = Math.round(canvas.clientHeight * pen.ratio);
+  redrawPad();
+}
+
+/** Crop to the ink, so the signature can be fitted to its place without empty margins. */
+function renderSignaturePng() {
+  const empty = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+  const b = pen.strokes.flat().reduce((acc, pt) => ({
+    x0: Math.min(acc.x0, pt.x), y0: Math.min(acc.y0, pt.y), x1: Math.max(acc.x1, pt.x), y1: Math.max(acc.y1, pt.y),
+  }), empty);
+  const margin = PEN_WIDTH * 2;
+  const k = 3; // export resolution
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.ceil((b.x1 - b.x0 + 2 * margin) * k);
+  canvas.height = Math.ceil((b.y1 - b.y0 + 2 * margin) * k);
+  paintStrokes(canvas.getContext("2d"), [k, 0, 0, k, (margin - b.x0) * k, (margin - b.y0) * k]);
+  return { dataUrl: canvas.toDataURL("image/png"), w: canvas.width, h: canvas.height };
+}
+
+const padPoint = (e) => {
+  const rect = $("sigCanvas").getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+};
+
+$("sigCanvas").addEventListener("pointerdown", (e) => {
+  e.currentTarget.setPointerCapture(e.pointerId);
+  pen.current = [padPoint(e)];
+  pen.strokes.push(pen.current);
+  redrawPad();
+});
+$("sigCanvas").addEventListener("pointermove", (e) => {
+  if (!pen.current) return;
+  for (const ev of e.getCoalescedEvents?.() ?? [e]) pen.current.push(padPoint(ev));
+  redrawPad();
+});
+["pointerup", "pointercancel"].forEach((type) =>
+  $("sigCanvas").addEventListener(type, () => { pen.current = null; }));
+window.addEventListener("resize", () => { if ($("sigDlg").open) sizePad(); });
+
+$("sigNew").onclick = () => {
+  Object.assign(pen, { strokes: [], current: null });
+  $("sigName").value = "";
+  $("sigMsg").textContent = "";
+  $("sigDlg").showModal();
+  sizePad(); // the canvas has a size only once the dialog is visible
+};
+$("sigCancel").onclick = () => $("sigDlg").close();
+$("sigUndo").onclick = () => { pen.strokes.pop(); redrawPad(); };
+$("sigClear").onclick = () => { pen.strokes = []; redrawPad(); };
+$("sigColor").onchange = redrawPad;
+
+$("sigSave").onclick = async () => {
+  const name = $("sigName").value.trim();
+  const warn = (text) => { $("sigMsg").textContent = text; };
+  if (!pen.strokes.length) { warn("Спочатку намалюйте підпис."); return; }
+  if (!name) { warn("Введіть назву підпису."); return; }
+  try {
+    await saveSignature({ id: newId(), name, savedAt: Date.now(), ...renderSignaturePng() });
+    $("sigDlg").close();
+    await renderSignatures();
+    say(`Підпис «${name}» збережено в довіднику.`);
+  } catch (err) {
+    console.error(err);
+    warn("Не вдалося зберегти підпис.");
+  }
+};
+
+function signatureRow(sig) {
+  const row = document.createElement("div");
+  row.className = "tpl";
+  const img = new Image();
+  img.src = sig.dataUrl;
+  img.alt = "";
+  img.className = "thumb";
+  const use = document.createElement("button");
+  use.textContent = `Вставити: ${sig.name}`;
+  use.onclick = () => enterSign(sig);
+  const del = document.createElement("button");
+  del.textContent = "✕";
+  del.title = "Видалити підпис";
+  del.onclick = async () => {
+    if (!confirm(`Видалити підпис «${sig.name}»?`)) return;
+    await deleteSignature(sig.id);
+    renderSignatures();
+  };
+  row.append(img, use, del);
+  return row;
+}
+
+async function renderSignatures() {
+  let items;
+  try {
+    items = await listSignatures();
+  } catch (err) {
+    console.error(err);
+    $("sigLib").hidden = true; // storage blocked: the rest of the tool still works
+    return;
+  }
+  const box = $("sigList");
+  box.replaceChildren(...items.sort((a, b) => b.savedAt - a.savedAt).map(signatureRow));
+  if (!items.length) box.textContent = "Збережених підписів немає.";
+}
+
+const setSignText = () => {
+  $("pasteText").textContent = `Підпис «${state.sign.name}», розмір ${Math.round(state.sigScale * 100)}%. Торкніться місця в документі.`;
+};
+
+function enterSign(sig) {
+  if (!state.doc) { say("Спочатку відкрийте документ.", true); return; }
+  Object.assign(state, { sign: sig, clip: null, pasteMode: true });
+  hideFab();
+  setSignText();
+  $("sigSmaller").hidden = false;
+  $("sigBigger").hidden = false;
+  $("pasteBar").hidden = false;
+  $("s2").scrollIntoView({ behavior: "smooth" });
+}
+
+$("sigSmaller").onclick = () => { state.sigScale = Math.max(0.4, state.sigScale - 0.15); setSignText(); };
+$("sigBigger").onclick = () => { state.sigScale = Math.min(2.5, state.sigScale + 0.15); setSignText(); };
+
+/* --- fitting the signature to the place --- */
+
+/** Size in pixels: fits the underscore line if there is one, never wider than the paragraph. */
+function fitSignature(aspect, holeW, lineH, pageW, scale) {
+  const maxH = Math.min(Math.max(lineH * 2, 26), 48); // about two lines of text: in proportion to the surname beside it
+  const maxW = Math.min(holeW ?? maxH * 3, pageW);
+  let h = Math.min(maxH, maxW / aspect) * scale;
+  let w = h * aspect;
+  if (w > pageW) { w = pageW; h = w / aspect; }
+  return { w, h };
+}
+
+/** The position after `norm` non-whitespace characters, as an index into the raw text. */
+function rawIndex(text, norm) {
+  let seen = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (seen === norm) return i;
+    if (!/\s/.test(text[i])) seen++;
+  }
+  return text.length;
+}
+
+/** A line of underscores or dots ("Підпис ______") that the tap landed on. */
+function placeholderAt(text, raw) {
+  for (const m of text.matchAll(/[_.…·\u2013\u2014-]{4,}/g)) {
+    if (raw >= m.index && raw <= m.index + m[0].length) return { start: m.index, end: m.index + m[0].length };
+  }
+  return null;
+}
+
+function domPoint(p, count) {
+  let seen = 0;
+  let last = null;
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    last = n;
+    for (let i = 0; i < n.data.length; i++) {
+      if (seen === count) return { node: n, offset: i };
+      if (!/\s/.test(n.data[i])) seen++;
+    }
+  }
+  return last ? { node: last, offset: last.data.length } : { node: p, offset: 0 };
+}
+
+function holeWidth(p, text, hole, prefix) {
+  const from = domPoint(p, normalize(text.slice(0, hole.start)).length + prefix);
+  const to = domPoint(p, normalize(text.slice(0, hole.end)).length + prefix);
+  const range = document.createRange();
+  range.setStart(from.node, from.offset);
+  range.setEnd(to.node, to.offset);
+  return (range.getClientRects()[0]?.width ?? 0) / viewerZoom() || null;
+}
+
+function signatureSize(p, holeW, sig) {
+  const style = getComputedStyle(p);
+  const lineH = parseFloat(style.lineHeight) || parseFloat(style.fontSize) * 1.2 || 16;
+  const pageW = p.getBoundingClientRect().width / viewerZoom();
+  const { w, h } = fitSignature(sig.w / sig.h, holeW, lineH, pageW, state.sigScale);
+  return { cx: Math.round(w * EMU_PER_PX), cy: Math.round(h * EMU_PER_PX) };
+}
+
+function caretNorm(e, p, info) {
+  const caret = caretAt(e.clientX, e.clientY);
+  if (!caret || !p.contains(caret.node)) return null;
+  const range = document.createRange();
+  range.selectNodeContents(p);
+  range.setEnd(caret.node, caret.offset);
+  return Math.max(0, normalize(range.toString()).length - info.prefix);
+}
+
+/* --- writing the picture into the docx --- */
+
+const DRAWING_NS = {
+  wp: "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+  a: "http://schemas.openxmlformats.org/drawingml/2006/main",
+  pic: "http://schemas.openxmlformats.org/drawingml/2006/picture",
+  r: "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+};
+
+async function addSignatureMedia(zip, sig) {
+  const rId = `rIdSig${Date.now().toString(36)}`;
+  const target = `media/${rId}.png`;
+  const relsPath = "word/_rels/document.xml.rels";
+  const typesPath = "[Content_Types].xml";
+  if (!zip.file(relsPath) || !zip.file(typesPath)) throw new DocxError("У файлі немає службових зв’язків: підпис вставити не можна.");
+  zip.file(`word/${target}`, sig.dataUrl.split(",")[1], { base64: true });
+  const rels = await zip.file(relsPath).async("string");
+  const relation = `<Relationship Id="${rId}" Type="${DRAWING_NS.r}/image" Target="${target}"/>`;
+  zip.file(relsPath, rels.replace("</Relationships>", `${relation}</Relationships>`));
+  const types = await zip.file(typesPath).async("string");
+  if (!/Extension="png"/i.test(types)) {
+    zip.file(typesPath, types.replace(/(<Types[^>]*>)/, '$1<Default Extension="png" ContentType="image/png"/>'));
+  }
+  return rId;
+}
+
+function drawingRun(xml, rId, cx, cy) {
+  const n = DRAWING_NS;
+  const id = ++docPrCounter;
+  const src = `<w:r xmlns:w="${W_NS}" xmlns:wp="${n.wp}" xmlns:a="${n.a}" xmlns:pic="${n.pic}" xmlns:r="${n.r}"><w:rPr><w:position w:val="${-Math.round(cy / EMU_PER_PX * 0.75 * 2 * 0.3)}"/></w:rPr><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${id}" name="Signature ${id}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic><a:graphicData uri="${n.pic}"><pic:pic><pic:nvPicPr><pic:cNvPr id="0" name="signature.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${rId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+  return xml.importNode(new DOMParser().parseFromString(src, "application/xml").documentElement, true);
+}
+
+const isTabOnlyRun = (n) =>
+  n?.localName === "r" && !n.getElementsByTagNameNS(W_NS, "t").length && n.getElementsByTagNameNS(W_NS, "tab").length > 0;
+
+/**
+ * Split the run at `local` characters and put `newRun` between the halves.
+ * Tabs and line breaks stay where they were. When more text follows, the picture goes after the tabs,
+ * right before that text: a signature tapped in the gap lands next to the surname, and the gap itself is kept.
+ */
+function splitRun(ts, local, newRun, moreAfter) {
+  const run = ts[0].parentNode;
+  let left = local;
+  let cut = null; // first child that moves to the tail
+  for (const el of [...run.children].filter((c) => c.localName === "t")) {
+    const text = el.textContent;
+    if (left === 0) { cut = el; break; }
+    if (left < text.length) {
+      el.textContent = text.slice(0, left);
+      el.setAttribute("xml:space", "preserve");
+      const rest = el.cloneNode(false);
+      rest.textContent = text.slice(left);
+      rest.setAttribute("xml:space", "preserve");
+      el.after(rest);
+      cut = rest;
+      break;
+    }
+    left -= text.length;
+    cut = el.nextElementSibling;
+    if (left === 0) break;
+  }
+  const textFollows = (n) => { for (; n; n = n.nextElementSibling) if (n.localName === "t" && n.textContent) return true; return false; };
+  if (cut && cut.localName === "tab" && (textFollows(cut) || moreAfter)) {
+    while (cut && cut.localName === "tab") cut = cut.nextElementSibling; // the tabs stay before the picture
+  }
+  const tailKids = [];
+  for (let n = cut; n; n = n.nextElementSibling) tailKids.push(n);
+  let anchor = run;
+  if (!tailKids.length && moreAfter) {
+    while (isTabOnlyRun(anchor.nextElementSibling)) anchor = anchor.nextElementSibling;
+  }
+  anchor.after(newRun);
+  if (tailKids.length) {
+    const tail = run.cloneNode(false);
+    const rPr = [...run.children].find((c) => c.localName === "rPr");
+    if (rPr) tail.append(rPr.cloneNode(true));
+    tailKids.forEach((n) => tail.append(n));
+    newRun.after(tail);
+  }
+}
+
+function insertRunAt(para, rawOffset, newRun) {
+  if (!para.runs.length) { para.node.appendChild(newRun); return; } // blank paragraph
+  let pos = 0;
+  for (let k = 0; k < para.runs.length; k++) {
+    const length = runText(para.runs[k]).length;
+    if (rawOffset <= pos + length || k === para.runs.length - 1) {
+      const next = para.runs[k + 1]?.[0].parentNode;
+      const lead = next && [...next.children].find((c) => c.localName !== "rPr");
+      if (rawOffset === pos + length && lead?.localName === "tab") { // the gap starts the next run: go past it
+        splitRun(para.runs[k + 1], 0, newRun, k + 1 < para.runs.length - 1);
+        return;
+      }
+      splitRun(para.runs[k], Math.max(0, Math.min(rawOffset - pos, length)), newRun, k < para.runs.length - 1);
+      return;
+    }
+    pos += length;
+  }
+}
+
+function placeRun(para, norm, run) {
+  const runs = para.runs.map(runText);
+  const text = runs.join("");
+  let at = rawIndex(text, norm);
+  const hole = placeholderAt(text, at);
+  if (hole) { // the line of underscores gives way to the signature
+    const original = text.slice(hole.start, hole.end);
+    replaceInRuns(runs, [{ ...hole, original }], { [original]: "" })
+      .forEach((t, k) => { if (t !== runs[k]) writeRun(para.runs[k], t); });
+    at = hole.start;
+  }
+  insertRunAt(para, at, run);
+}
+
+function placeSignature(xml, para, norm, rId, size) {
+  placeRun(para, norm, drawingRun(xml, rId, size.cx, size.cy));
+}
+
+async function signAt(e, p, info) {
+  const hasText = normalize(p.textContent).length > 0;
+  const norm = hasText ? caretNorm(e, p, info) : 0;
+  if (norm === null) { say("Не вдалося визначити місце. Торкніться ще раз.", true); return; }
+  try {
+    const { paragraphs } = parseDocument(state.doc.xmlText);
+    const text = paragraphs[info.idx].runs.map(runText).join("");
+    const hole = placeholderAt(text, rawIndex(text, norm));
+    const size = signatureSize(p, hole && holeWidth(p, text, hole, info.prefix), state.sign);
+    const rId = await addSignatureMedia(state.doc.zip, state.sign);
+    await runEdit((xml, paras) => { placeSignature(xml, paras[info.idx], norm, rId, size); return []; },
+      "Підпис вставлено. Перетягніть його пальцем чи мишкою або натисніть «Скасувати». Розмір: кнопки − і +.");
+  } catch (err) {
+    reportError(err);
+  }
+}
+
+/* ---------- moving a placed signature ---------- */
+
+const signatureDrawings = (xml) =>
+  [...xml.getElementsByTagNameNS(W_NS, "drawing")].filter((d) => d.getElementsByTagNameNS(DRAWING_NS.a, "blip").length);
+
+const isSignatureDrawing = (d) =>
+  (d.getElementsByTagNameNS(DRAWING_NS.wp, "docPr")[0]?.getAttribute("name") ?? "").startsWith("Signature");
+
+function setExtent(drawing, { cx, cy }) {
+  const sizes = [...drawing.getElementsByTagNameNS(DRAWING_NS.wp, "extent"), ...drawing.getElementsByTagNameNS(DRAWING_NS.a, "ext")];
+  for (const el of sizes.filter((x) => x.hasAttribute("cx"))) {
+    el.setAttribute("cx", String(cx));
+    el.setAttribute("cy", String(cy));
+  }
+}
+
+/** Take the k-th picture out of its paragraph and put it at the new place. */
+function moveSignature(xml, paragraphs, k, targetIdx, norm, size) {
+  const drawing = signatureDrawings(xml)[k];
+  const run = drawing?.parentNode;
+  if (!run) throw new DocxError("Не вдалося знайти підпис у документі.");
+  if (size) setExtent(drawing, size);
+  run.remove(); // text offsets stay valid: a picture adds no text
+  placeRun(paragraphs[targetIdx], norm, run);
+  return [];
+}
+
+/** Pictures are matched to the XML by order; when the counts differ nothing is made draggable. */
+function markSignatures() {
+  const imgs = [...$("viewer").querySelectorAll("article img")];
+  const drawings = signatureDrawings(parseDocument(state.doc.xmlText).xml);
+  if (imgs.length !== drawings.length) return;
+  drawings.forEach((d, k) => {
+    if (!isSignatureDrawing(d)) return;
+    imgs[k].classList.add("sig");
+    imgs[k].dataset.i = String(k);
+    imgs[k].draggable = false;
+  });
+}
+
+function dropTargetAt(x, y) {
+  const el = document.elementFromPoint(x, y);
+  if (!el || !$("viewer").contains(el)) return null;
+  return paragraphOf(el) ?? el.closest("td")?.querySelector("p") ?? null;
+}
+
+function showDropMark(x, y) {
+  const mark = $("dropMark");
+  const caret = caretAt(x, y);
+  const rect = caret && $("viewer").contains(caret.node) && (() => {
+    const range = document.createRange();
+    range.setStart(caret.node, caret.offset);
+    range.collapse(true);
+    return range.getClientRects()[0];
+  })();
+  mark.hidden = !rect || !rect.height; // blank lines have no caret box: the dashed paragraph outline is shown instead
+  if (!mark.hidden) Object.assign(mark.style, { left: `${rect.left}px`, top: `${rect.top}px`, height: `${rect.height}px` });
+}
+
+function makeGhost(img) {
+  const rect = img.getBoundingClientRect();
+  const ghost = img.cloneNode();
+  ghost.className = "ghost";
+  Object.assign(ghost.style, { width: `${rect.width}px`, height: `${rect.height}px` });
+  document.body.append(ghost);
+  img.style.opacity = "0.3";
+  return ghost;
+}
+
+async function dropSignature(img, x, y) {
+  const p = dropTargetAt(x, y);
+  const info = p && mapViewerParagraphs().get(p);
+  if (!info) { say("Підпис можна покласти в рядок чи клітинку документа. Спробуйте ще раз.", true); return; }
+  const norm = normalize(p.textContent) ? caretNorm({ clientX: x, clientY: y }, p, info) : 0;
+  if (norm === null) { say("Не вдалося визначити місце. Спробуйте ще раз.", true); return; }
+  const { paragraphs } = parseDocument(state.doc.xmlText);
+  const text = paragraphs[info.idx].runs.map(runText).join("");
+  const hole = placeholderAt(text, rawIndex(text, norm));
+  const aspect = { w: img.naturalWidth, h: img.naturalHeight };
+  const size = hole ? signatureSize(p, holeWidth(p, text, hole, info.prefix), aspect) : null; // refit only onto an underscore line
+  const k = Number(img.dataset.i);
+  await runEdit((xml, paras) => moveSignature(xml, paras, k, info.idx, norm, size), "Підпис переміщено. Не туди? «Скасувати» повертає назад.");
+}
+
+function startSignatureDrag(e, img) {
+  const start = { x: e.clientX, y: e.clientY };
+  let ghost = null;
+  let dropP = null;
+  const move = (ev) => {
+    if (ev.pointerId !== e.pointerId) return;
+    if (!ghost) {
+      if (Math.hypot(ev.clientX - start.x, ev.clientY - start.y) < 8) return; // a tap is not a drag
+      ghost = makeGhost(img);
+    }
+    const lift = ev.pointerType === "touch" ? ghost.offsetHeight + 24 : ghost.offsetHeight / 2; // stay visible above the finger
+    ghost.style.left = `${ev.clientX - ghost.offsetWidth / 2}px`;
+    ghost.style.top = `${ev.clientY - lift}px`;
+    const p = dropTargetAt(ev.clientX, ev.clientY);
+    if (p !== dropP) { dropP?.classList.remove("dropTarget"); dropP = p; p?.classList.add("dropTarget"); }
+    showDropMark(ev.clientX, ev.clientY);
+  };
+  const end = (ev) => {
+    if (ev.pointerId !== e.pointerId) return;
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", end);
+    window.removeEventListener("pointercancel", end);
+    dropP?.classList.remove("dropTarget");
+    $("dropMark").hidden = true;
+    ghost?.remove();
+    img.style.opacity = "";
+    if (!ghost) return; // it was only a tap
+    state.justDragged = true;
+    setTimeout(() => { state.justDragged = false; }, 300);
+    if (ev.type === "pointerup") dropSignature(img, ev.clientX, ev.clientY);
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", end);
+  window.addEventListener("pointercancel", end);
+}
+
+$("viewer").addEventListener("pointerdown", (e) => {
+  const img = e.target.closest?.("img.sig");
+  if (img && e.isPrimary) startSignatureDrag(e, img);
+});
+
+/* ---------- library export / import ---------- */
+
+class LibraryError extends Error {}
+const LIB_FORMAT = "dokshtab-library";
+
+function bytesToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(binary);
+}
+
+const base64ToBytes = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)).buffer;
+
+function toTemplate(item) {
+  const title = item?.name ?? "без назви";
+  let bytes;
+  try {
+    bytes = base64ToBytes(item.docx);
+  } catch {
+    throw new LibraryError(`Пошкоджений шаблон «${title}».`);
+  }
+  const head = new Uint8Array(bytes.slice(0, 2));
+  const isZip = head[0] === 0x50 && head[1] === 0x4b; // a .docx is a zip: "PK"
+  if (!item.id || !item.name || !Array.isArray(item.fields) || !isZip) {
+    throw new LibraryError(`Некоректний шаблон «${title}».`);
+  }
+  return {
+    id: String(item.id), name: String(item.name), savedAt: Number(item.savedAt) || Date.now(), bytes,
+    fields: item.fields.map(({ original, label }) => ({ original: String(original), label: String(label) })),
+  };
+}
+
+function parseLibrary(text) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new LibraryError("Файл не є коректним JSON.");
+  }
+  if (data?.format !== LIB_FORMAT || !Array.isArray(data.templates)) {
+    throw new LibraryError("Це не файл довідника ДокШтаб.");
+  }
+  return data.templates.map(toTemplate);
+}
+
+function parseSignatures(text) {
+  const list = JSON.parse(text).signatures ?? []; // the file was already validated by parseLibrary
+  return list.map((s) => {
+    if (!s?.id || !s?.name || !/^data:image\/png;base64,/.test(s.dataUrl ?? "")) {
+      throw new LibraryError(`Некоректний підпис «${s?.name ?? "без назви"}».`);
+    }
+    return { id: String(s.id), name: String(s.name), savedAt: Number(s.savedAt) || Date.now(), dataUrl: s.dataUrl, w: Number(s.w) || 300, h: Number(s.h) || 100 };
+  });
+}
+
+/** Save incoming signatures; a newer local copy is never overwritten. Returns how many were saved. */
+async function mergeSignatures(incoming) {
+  const known = new Map((await listSignatures()).map((x) => [x.id, x]));
+  let saved = 0;
+  for (const sig of incoming) {
+    const old = known.get(sig.id);
+    if (old && old.savedAt >= sig.savedAt) continue;
+    await saveSignature(sig);
+    saved++;
+  }
+  await renderSignatures();
+  return saved;
+}
+
+function parseSignatureFile(text) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new LibraryError("Файл не є коректним JSON.");
+  }
+  if (data?.format !== LIB_FORMAT || !Array.isArray(data.signatures)) throw new LibraryError("Це не файл підписів ДокШтаб.");
+  return parseSignatures(text);
+}
+
+async function exportSignatures() {
+  const signatures = await listSignatures();
+  if (!signatures.length) { say("Довідник підписів порожній: нічого експортувати.", true); return; }
+  const json = JSON.stringify({ format: LIB_FORMAT, version: 1, exportedAt: new Date().toISOString(), templates: [], signatures });
+  await saveFile(new Blob([json], { type: "application/json" }), `dokshtab-pidpysy-${new Date().toISOString().slice(0, 10)}.json`);
+  say(`Експортовано підписів: ${signatures.length}`);
+}
+
+async function importSignatures(file) {
+  const incoming = parseSignatureFile(await file.text());
+  const saved = await mergeSignatures(incoming);
+  say(`Імпорт підписів завершено. Додано або оновлено: ${saved}, пропущено: ${incoming.length - saved} (локальні новіші).`);
+}
+
+async function exportLibrary() {
+  const items = await listTemplates();
+  const signatures = await listSignatures();
+  if (!items.length && !signatures.length) { say("Довідники порожні: нічого експортувати.", true); return; }
+  const templates = items.map((t) => ({ id: t.id, name: t.name, savedAt: t.savedAt, fields: t.fields, docx: bytesToBase64(t.bytes) }));
+  const json = JSON.stringify({ format: LIB_FORMAT, version: 1, exportedAt: new Date().toISOString(), templates, signatures });
+  await saveFile(new Blob([json], { type: "application/json" }), `dokshtab-dovidnyk-${new Date().toISOString().slice(0, 10)}.json`);
+  say(`Експортовано шаблонів: ${items.length}, підписів: ${signatures.length}`);
+}
+
+async function importLibrary(file) {
+  const text = await file.text();
+  const incoming = parseLibrary(text);
+  const incomingSignatures = parseSignatures(text);
+  const existing = new Map((await listTemplates()).map((t) => [t.id, t]));
+  let added = 0, updated = 0, skipped = 0;
+  for (const tpl of incoming) {
+    const old = existing.get(tpl.id);
+    if (old && old.savedAt >= tpl.savedAt) { skipped++; continue; } // never overwrite a newer local copy
+    await saveTemplate(tpl);
+    if (old) updated++; else added++;
+  }
+  await renderLibrary();
+  const signaturesAdded = await mergeSignatures(incomingSignatures);
+  say(`Імпорт завершено. Шаблонів: додано ${added}, оновлено ${updated}, пропущено ${skipped} (локальні новіші). Підписів додано або оновлено: ${signaturesAdded}.`);
+}
+
+$("exp").onclick = () => exportLibrary().catch(reportError);
+$("imp").onclick = () => $("impFile").click();
+$("sigExp").onclick = () => exportSignatures().catch(reportError);
+$("sigImp").onclick = () => $("sigImpFile").click();
+$("sigImpFile").onchange = (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (file) importSignatures(file).catch(reportError);
+};
+$("impFile").onchange = (e) => {
+  const file = e.target.files[0];
+  e.target.value = ""; // lets the same file be chosen again
+  if (file) importLibrary(file).catch(reportError);
+};
+
+/* ---------- PWA: saving files, install, offline ---------- */
+
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+
+/** On iOS the share sheet is the reliable way to save a generated file; elsewhere a normal download. */
+async function saveFile(blob, name) {
+  const file = new File([blob], name, { type: blob.type });
+  if (isIOS && navigator.canShare?.({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file] });
+    } catch (err) {
+      if (err.name !== "AbortError") throw err;
+    }
+    return;
+  }
+  download(blob, name);
+}
+
+let installEvent = null;
+window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvent = e; $("inst").hidden = false; });
+window.addEventListener("appinstalled", () => { $("inst").hidden = true; });
+$("inst").onclick = async () => {
+  if (!installEvent) return;
+  installEvent.prompt();
+  await installEvent.userChoice;
+  installEvent = null;
+  $("inst").hidden = true;
+};
+$("iosHint").hidden = !(isIOS && !isStandalone);
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("sw.js").catch((err) => console.error(err));
+}
+
+/* ---------- self-test: open the page with #test ---------- */
+
+function runTests() {
+  const results = [];
+  const check = (name, ok) => results.push(`${ok ? "OK  " : "FAIL"} ${name}`);
+  const found = detectFields(["Наказ № 15 від 12.05.2024, Іваненко І.І."]).map((f) => f.original);
+  check("detects number, date and name", ["№ 15", "12.05.2024", "Іваненко І.І."].every((x) => found.includes(x)));
+  const runs = ["Наказ від 12.0", "5.2024 р."];
+  const hits = findMatches(runs.join(""), ["12.05.2024"]);
+  const out = replaceInRuns(runs, hits, { "12.05.2024": "01.06.2025" });
+  check("replaces text split across runs", out.join("") === "Наказ від 01.06.2025 р.");
+  check("negative: plain text has no fields", detectFields(["просто текст"]).length === 0);
+  check("negative: empty field never matches", findMatches("текст", [""]).length === 0);
+  const sample = { format: LIB_FORMAT, templates: [{ id: "a", name: "Рапорт", savedAt: 1, fields: [{ original: "x", label: "Поле" }], docx: "UEsDBA==" }] };
+  const rejects = (text) => { try { parseLibrary(text); return false; } catch (e) { return e instanceof LibraryError; } };
+  check("library: valid file parses", parseLibrary(JSON.stringify(sample))[0].name === "Рапорт");
+  check("library: base64 round trip", new Uint8Array(base64ToBytes(bytesToBase64(new Uint8Array([80, 75, 3]).buffer))).join() === "80,75,3");
+  check("negative: wrong format rejected", rejects('{"format":"other","templates":[]}'));
+  check("negative: non-docx bytes rejected", rejects(JSON.stringify({ ...sample, templates: [{ ...sample.templates[0], docx: "AAAA" }] })));
+  const doc = parseDocument(`<w:document xmlns:w="${W_NS}"><w:body><w:p><w:r><w:t>Привіт світе</w:t></w:r></w:p></w:body></w:document>`);
+  insertText(doc.paragraphs[0], 6, "новий");
+  check("copy: text inserted inside a paragraph", runText(doc.paragraphs[0].runs[0]) === "Привіт новий світе");
+  check("negative: offset past the end goes to the last run end", locateOffset(["ab", "cd"], 99).pos === 2);
+  const marked = parseDocument(`<w:document xmlns:w="${W_NS}"><w:body><w:p><w:bookmarkStart w:id="1" w:name="x"/><w:r><w:t>a</w:t></w:r></w:p></w:body></w:document>`);
+  sanitizeClone(marked.paragraphs[0].node);
+  check("copy: bookmarks are dropped from clones", marked.xml.getElementsByTagNameNS(W_NS, "bookmarkStart").length === 0);
+  const src = [{ original: "12.05.2024", label: "Дата", value: "01.06.2025" }];
+  const first = remark(["Наказ від 12.05.2024"], src, 1);
+  check("copy: fields of a copy become independent", first.runs[0] === `Наказ від 12.05.2024${MARK}` && first.created[0].value === "01.06.2025" && first.created[0].label === "Дата (копія 1)");
+  check("negative: text without fields stays untouched", remark(["просто текст"], src, 1).created.length === 0);
+  const second = remark(first.runs, [...src, ...first.created], 2);
+  check("copy of a copy gets its own marker", second.runs[0] === `Наказ від 12.05.2024${MARK}${MARK}` && second.created[0].label === "Дата (копія 2)");
+  const savedTexts = state.texts;
+  state.texts = ["Наказ від 12.05.2024 р."];
+  check("preview: context shows the new value", contextOf({ original: "12.05.2024", value: "01.06.2025" }) === "…Наказ від 01.06.2025 р.…");
+  check("negative: context of a missing field is empty", contextOf({ original: "немає", value: "x" }) === "");
+  state.texts = savedTexts;
+  check("signature: fits the underscore line width", Math.round(fitSignature(3, 100, 16, 400, 1).w) === 100);
+  check("negative: signature never wider than the paragraph", fitSignature(3, null, 16, 150, 2).w === 150);
+  check("signature: finds the underscore line", placeholderAt("Підпис ______ Іваненко", 8)?.start === 7);
+  check("negative: plain text has no placeholder", placeholderAt("текст", 2) === null);
+  check("signature: raw index skips spaces", rawIndex("a b", 1) === 1 && rawIndex("a b", 2) === 3);
+  const sigJson = (url) => JSON.stringify({ format: LIB_FORMAT, templates: [], signatures: [{ id: "s", name: "Командир", dataUrl: url }] });
+  check("signature library: valid file parses", parseSignatures(sigJson("data:image/png;base64,AAAA"))[0].name === "Командир");
+  let badSignature = false;
+  try { parseSignatures(sigJson("http://example.com/x.png")); } catch (e) { badSignature = e instanceof LibraryError; }
+  check("negative: non-png signature rejected", badSignature);
+  const moving = parseDocument(`<w:document xmlns:w="${W_NS}"><w:body><w:p><w:r><w:t>Один</w:t></w:r></w:p><w:p><w:r><w:t>Два</w:t></w:r></w:p></w:body></w:document>`);
+  moving.paragraphs[0].node.appendChild(drawingRun(moving.xml, "rIdX", 100, 50));
+  const drawings = signatureDrawings(moving.xml);
+  check("move: a placed signature is recognised", drawings.length === 1 && isSignatureDrawing(drawings[0]));
+  moveSignature(moving.xml, moving.paragraphs, 0, 1, 0, { cx: 200, cy: 80 });
+  const count = (i) => moving.paragraphs[i].node.getElementsByTagNameNS(W_NS, "drawing").length;
+  check("move: picture changes paragraph and size", count(0) === 0 && count(1) === 1 && signatureDrawings(moving.xml)[0].getElementsByTagNameNS(DRAWING_NS.wp, "extent")[0].getAttribute("cx") === "200");
+  signatureDrawings(moving.xml)[0].getElementsByTagNameNS(DRAWING_NS.wp, "docPr")[0].setAttribute("name", "Picture 1");
+  check("negative: an ordinary picture is not a signature", !isSignatureDrawing(signatureDrawings(moving.xml)[0]));
+  let missing = false;
+  try { moveSignature(moving.xml, moving.paragraphs, 5, 1, 0, null); } catch (e) { missing = e instanceof DocxError; }
+  check("negative: moving a missing picture is rejected", missing);
+  const asFile = (data) => JSON.stringify({ format: LIB_FORMAT, templates: [], ...data });
+  const okFile = asFile({ signatures: [{ id: "s", name: "Командир", dataUrl: "data:image/png;base64,AAAA" }] });
+  check("signature file: valid file parses", parseSignatureFile(okFile).length === 1);
+  const rejectsFile = (text) => { try { parseSignatureFile(text); return false; } catch (e) { return e instanceof LibraryError; } };
+  check("negative: file without signatures rejected", rejectsFile(asFile({})) && rejectsFile("не json"));
+  say(results.join("\n"), results.some((r) => r.startsWith("FAIL")));
+}
+
+if (location.hash === "#test") runTests();
+renderLibrary();
+renderSignatures();
+</script>
 </body>
 </html>
