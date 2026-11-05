@@ -685,7 +685,7 @@ async function openBytes(bytes, name, savedFields = null, templateId = null) {
   $("barUndo").disabled = true;
   state.texts = parseDocument(doc.xmlText).paragraphs.map((p) => p.runs.map(runText).join(""));
   const fields = savedFields ?? detectFields(state.texts);
-  state.fields = fields.map((f) => ({ original: f.original, label: f.label, value: f.original }));
+  state.fields = fields.map((f) => ({ original: f.original, label: f.label, value: f.value ?? f.original }));
   $("tplName").value = name;
   $("s2").hidden = false;
   $("emptyHint").hidden = true;
@@ -743,7 +743,7 @@ $("save").onclick = async () => {
   // Copy edits change the document itself, so never overwrite a saved template silently.
   const overwrite = state.templateId && (state.history.length === 0 || confirm("Документ змінено копіюванням. Перезаписати шаблон? «Скасувати» збереже як новий."));
   const id = overwrite ? state.templateId : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
-  const fields = state.fields.map(({ original, label }) => ({ original, label }));
+  const fields = state.fields.map(({ original, label, value }) => ({ original, label, value }));
   try {
     await saveTemplate({ id, name, savedAt: Date.now(), bytes: state.bytes, fields });
     state.templateId = id;
@@ -1674,7 +1674,9 @@ function toTemplate(item) {
   }
   return {
     id: String(item.id), name: String(item.name), savedAt: Number(item.savedAt) || Date.now(), bytes,
-    fields: item.fields.map(({ original, label }) => ({ original: String(original), label: String(label) })),
+    fields: item.fields.map(({ original, label, value }) => ({
+      original: String(original), label: String(label), value: value == null ? undefined : String(value),
+    })),
   };
 }
 
