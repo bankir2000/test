@@ -1635,7 +1635,170 @@ function insertRunAt(para, rawOffset, newRun) {
   }
 }
 
-function placeRun(para, norm, run) {
+/* ---------- підпис у проміжку з табуляцій: «посада ⇥ ⇥ ⇥ ПІБ» ---------- */
+
+const normLen = (str) => normalize(str).length;
+
+/** Text pieces and tab characters of a paragraph, in order. */
+function paragraphAtoms(para) {
+  const atoms = [];
+  for (const run of para.node.getElementsByTagNameNS(W_NS, "r")) {
+    for (const el of run.children) {
+      if (el.localName === "t") atoms.push({ kind: "t", el, text: el.textContent });
+      else if (el.localName === "tab") atoms.push({ kind: "tab", el });
+    }
+  }
+  return atoms;
+}
+
+/** The tabs standing right after `norm` characters of text and followed by more text (the name). */
+function findGap(atoms, norm) {
+  let before = 0;
+  for (let i = 0; i < atoms.length; i++) {
+    if (atoms[i].kind === "t") { before += normLen(atoms[i].text); continue; }
+    let j = i;
+    while (j < atoms.length && atoms[j].kind === "tab") j++;
+    if (i > 0 && norm > 0 && before === norm) {
+      let nameLen = 0;
+      for (let e = j; e < atoms.length && atoms[e].kind === "t"; e++) nameLen += normLen(atoms[e].text);
+      if (nameLen > 0) return { from: i, to: j, nameLen };
+    }
+    i = j - 1;
+  }
+  return null;
+}
+
+/** Tab stops of the paragraph in css pixels (1 px = 15 twips). */
+function tabStops(para) {
+  const pPr = [...para.node.children].find((c) => c.localName === "pPr");
+  const tabs = pPr && [...pPr.children].find((c) => c.localName === "tabs");
+  const stops = new Map();
+  for (const t of tabs ? [...tabs.children] : []) {
+    const pos = Number(t.getAttributeNS(W_NS, "pos"));
+    const val = t.getAttributeNS(W_NS, "val") || "left";
+    if (!Number.isFinite(pos)) continue;
+    if (val === "clear") stops.delete(pos);
+    else stops.set(pos, val === "right" || val === "center" ? val : "left");
+  }
+  return [...stops].map(([pos, type]) => ({ pos: pos / 15, type })).sort((a, b) => a.pos - b.pos);
+}
+
+/** Where a tab character takes the text from x: the next custom stop, or the next default one. */
+const tabLanding = (x, stops, def) =>
+  stops.find((st) => st.pos > x + 0.5) ?? { pos: (Math.floor(x / def + 1e-6) + 1) * def, type: "left" };
+
+async function defaultTabPx() {
+  const file = state.doc.zip.file("word/settings.xml");
+  const m = file && (await file.async("string")).match(/<w:defaultTabStop[^>]*w:val="(\d+)"/);
+  return (m ? Number(m[1]) : 708) / 15;
+}
+
+/** The n-th (from 1) non-space character shown in the paragraph. */
+function domNth(p, n) {
+  let seen = 0;
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    for (let i = 0; i < node.data.length; i++) {
+      if (/\s/.test(node.data[i])) continue;
+      if (++seen === n) return { node, i };
+    }
+  }
+  return null;
+}
+
+/**
+ * Decide how to put a picture of width `wantW` into a gap of tabs, so that the text after the gap stays where it is.
+ * Keeps `keepBefore` tabs before the picture and `keepAfter` after it; the rest are dropped.
+ * Returns null when the place is not such a gap or the layout cannot be measured (then the usual insertion is used).
+ */
+function planGap({ p, para, info, norm, tapX, wantW, defTab }) {
+  const atoms = paragraphAtoms(para);
+  const gap = findGap(atoms, norm);
+  const article = p.parentElement;
+  // the viewer shows tabs as short spaces, so positions before the gap are trusted only if no other tab shifts them
+  if (!gap || article?.localName !== "article" || atoms.slice(0, gap.from).some((a) => a.kind === "tab")) return null;
+  const zoom = viewerZoom();
+  const originX = article.getBoundingClientRect().left / zoom;
+  const rectOf = (n) => {
+    const at = domNth(p, n);
+    if (!at) return null;
+    const range = document.createRange();
+    range.setStart(at.node, at.i);
+    range.setEnd(at.node, at.i + 1);
+    const rc = range.getClientRects()[0];
+    return rc && { left: rc.left / zoom - originX, right: rc.right / zoom - originX };
+  };
+  const c = norm + info.prefix;
+  const prev = rectOf(c);
+  const first = rectOf(c + 1);
+  const last = rectOf(c + gap.nameLen);
+  if (!prev || !first || !last) return null;
+
+  const stops = tabStops(para);
+  const k = gap.to - gap.from;
+  const land = [{ pos: prev.right, type: "left" }];
+  for (let t = 0; t < k; t++) land.push(tabLanding(land[t].pos, stops, defTab));
+  const final = land[k];
+  const nameW = last.right - first.left;
+  // Where the name starts in Word (the viewer draws tabs differently, so only the text widths are taken from it).
+  const nameStart = final.type === "right" ? final.pos - nameW : final.type === "center" ? final.pos - nameW / 2 : final.pos;
+  const limit = nameStart - 3;
+  // The tap inside the viewer's gap tells how close to the rank or to the name the picture should be.
+  const viewGap = first.left - prev.right;
+  const rel = viewGap > 1 ? Math.min(1, Math.max(0, (tapX - prev.right) / viewGap)) : 0.5;
+  const target = prev.right + rel * (nameStart - prev.right);
+
+  let best = null;
+  for (let before = 0; before < k; before++) {
+    const start = land[before].pos;
+    const w = Math.min(wantW, limit - start);
+    if (w < 40) continue;
+    let x = start + w;
+    let after = 0;
+    while (x < final.pos - 0.5 && after <= k) { x = tabLanding(x, stops, defTab).pos; after++; }
+    if (Math.abs(x - final.pos) > 0.5 || after < 1 || after > k - before) continue;
+    const score = Math.abs(start + w / 2 - target) + (wantW - w);
+    if (!best || score < best.score) best = { score, norm, keepBefore: before, keepAfter: after, width: w };
+  }
+  return best;
+}
+
+/** Make every child of the run a run of its own, copying the formatting. */
+function explodeRun(run) {
+  const kids = [...run.children].filter((c) => c.localName !== "rPr");
+  const rPr = [...run.children].find((c) => c.localName === "rPr");
+  let anchor = run;
+  for (const kid of kids.slice(1)) {
+    const clone = run.cloneNode(false);
+    if (rPr) clone.append(rPr.cloneNode(true));
+    clone.append(kid);
+    anchor.after(clone);
+    anchor = clone;
+  }
+}
+
+function applyGapPlan(para, plan, run) {
+  const atoms = paragraphAtoms(para);
+  const gap = findGap(atoms, plan.norm);
+  if (!gap) return false;
+  const tabs = atoms.slice(gap.from, gap.to).map((a) => a.el);
+  const prevRun = atoms[gap.from - 1].el.parentNode;
+  tabs.forEach((tab) => explodeRun(tab.parentNode));
+  tabs.slice(plan.keepBefore, tabs.length - plan.keepAfter).forEach((tab) => {
+    const owner = tab.parentNode;
+    tab.remove();
+    if (![...owner.children].some((c) => c.localName !== "rPr")) owner.remove();
+  });
+  (plan.keepBefore > 0 ? tabs[plan.keepBefore - 1].parentNode : prevRun).after(run);
+  return true;
+}
+
+function sizeForWidth(widthPx, aspect) {
+  return { cx: Math.round(widthPx * EMU_PER_PX), cy: Math.round((widthPx / aspect) * EMU_PER_PX) };
+}
+
+function placeRun(para, norm, run, plan = null) {
+  if (plan && applyGapPlan(para, plan, run)) return;
   const runs = para.runs.map(runText);
   const text = runs.join("");
   let at = rawIndex(text, norm);
@@ -1649,8 +1812,8 @@ function placeRun(para, norm, run) {
   insertRunAt(para, at, run);
 }
 
-function placeSignature(xml, para, norm, rId, size) {
-  placeRun(para, norm, drawingRun(xml, rId, size.cx, size.cy));
+function placeSignature(xml, para, norm, rId, size, plan = null) {
+  placeRun(para, norm, drawingRun(xml, rId, size.cx, size.cy), plan);
 }
 
 async function signAt(e, p, info) {
@@ -1661,9 +1824,15 @@ async function signAt(e, p, info) {
     const { paragraphs } = parseDocument(state.doc.xmlText);
     const text = paragraphs[info.idx].runs.map(runText).join("");
     const hole = placeholderAt(text, rawIndex(text, norm));
-    const size = signatureSize(p, hole && holeWidth(p, text, hole, info.prefix), state.sign);
+    let size = signatureSize(p, hole && holeWidth(p, text, hole, info.prefix), state.sign);
+    const plan = hole ? null : planGap({
+      p, para: paragraphs[info.idx], info, norm, wantW: size.cx / EMU_PER_PX,
+      tapX: e.clientX / viewerZoom() - p.parentElement.getBoundingClientRect().left / viewerZoom(),
+      defTab: await defaultTabPx(),
+    });
+    if (plan) size = sizeForWidth(plan.width, state.sign.w / state.sign.h);
     const rId = await addSignatureMedia(state.doc.zip, state.sign);
-    await runEdit((xml, paras) => { placeSignature(xml, paras[info.idx], norm, rId, size); return []; },
+    await runEdit((xml, paras) => { placeSignature(xml, paras[info.idx], norm, rId, size, plan); return []; },
       "Підпис вставлено. Перетягніть його пальцем чи мишкою або натисніть «Скасувати». Розмір: кнопки − і +.");
   } catch (err) {
     reportError(err);
@@ -1684,13 +1853,13 @@ function setExtent(drawing, { cx, cy }) {
   }
 }
 
-function moveSignature(xml, paragraphs, k, targetIdx, norm, size) {
+function moveSignature(xml, paragraphs, k, targetIdx, norm, size, plan = null) {
   const drawing = signatureDrawings(xml)[k];
   const run = drawing?.parentNode;
   if (!run) throw new DocxError("Не вдалося знайти підпис у документі.");
   if (size) setExtent(drawing, size);
   run.remove();
-  placeRun(paragraphs[targetIdx], norm, run);
+  placeRun(paragraphs[targetIdx], norm, run, plan);
   return [];
 }
 
@@ -1745,9 +1914,15 @@ async function dropSignature(img, x, y) {
   const text = paragraphs[info.idx].runs.map(runText).join("");
   const hole = placeholderAt(text, rawIndex(text, norm));
   const aspect = { w: img.naturalWidth, h: img.naturalHeight };
-  const size = hole ? signatureSize(p, holeWidth(p, text, hole, info.prefix), aspect) : null;
+  let size = hole ? signatureSize(p, holeWidth(p, text, hole, info.prefix), aspect) : null;
+  const plan = hole ? null : planGap({
+    p, para: paragraphs[info.idx], info, norm, wantW: img.getBoundingClientRect().width / viewerZoom(),
+    tapX: x / viewerZoom() - p.parentElement.getBoundingClientRect().left / viewerZoom(),
+    defTab: await defaultTabPx(),
+  });
+  if (plan) size = sizeForWidth(plan.width, aspect.w / aspect.h);
   const k = Number(img.dataset.i);
-  await runEdit((xml, paras) => moveSignature(xml, paras, k, info.idx, norm, size), "Підпис переміщено. Не туди? «Скасувати» повертає назад.");
+  await runEdit((xml, paras) => moveSignature(xml, paras, k, info.idx, norm, size, plan), "Підпис переміщено. Не туди? «Скасувати» повертає назад.");
 }
 
 function startSignatureDrag(e, img) {
